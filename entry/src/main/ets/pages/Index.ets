@@ -6,6 +6,7 @@ import { HealthCard, IconCard, MediumStepRing, ProgressCard, WaterProgressCard }
 import { HealthData } from '../model/HealthData';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
+import router from '@ohos.router';
 
 @Entry
 @Component
@@ -60,6 +61,14 @@ struct Index {
   private get maxSleep(): number {
     return Math.max(...this.sleepData);
   }
+
+  private goToGoalSetting() {
+    router.pushUrl({ url: 'pages/GoalSetting' });
+  }
+
+  private goToSettings() {
+    router.pushUrl({ url: 'pages/Settings' });
+  }
   
 
   
@@ -67,21 +76,27 @@ struct Index {
    * 增加步数
    */
   addSteps(steps: number) {
-    this.healthData.addSteps(steps);
+    const next = new HealthData(this.healthData);
+    next.addSteps(steps);
+    this.healthData = next;
   }
   
   /**
    * 增加饮水量
    */
   addWater(amount: number) {
-    this.healthData.addWater(amount);
+    const next = new HealthData(this.healthData);
+    next.addWater(amount);
+    this.healthData = next;
   }
   
   /**
    * 更新睡眠时长
    */
   updateSleep(hours: number) {
-    this.healthData.updateSleep(hours);
+    const next = new HealthData(this.healthData);
+    next.updateSleep(hours);
+    this.healthData = next;
   }
   
   /**
@@ -463,6 +478,36 @@ struct Index {
           .padding({ top: 24, bottom: 8 })
           .alignItems(HorizontalAlign.Start)
           .padding({ left: 24, right: 24 })
+
+          // 页面跳转操作
+          Row({ space: 12 }) {
+            Button('目标设置')
+              .height(36)
+              .fontSize(14)
+              .fontColor(AppColors.PRIMARY)
+              .backgroundColor(AppColors.WHITE)
+              .border({ width: 1, color: AppColors.GRAY_200 })
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 12, right: 12 })
+              .onClick(() => this.goToGoalSetting())
+
+            Button('设置')
+              .height(36)
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_700)
+              .backgroundColor(AppColors.GRAY_100)
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 12, right: 12 })
+              .onClick(() => this.goToSettings())
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, bottom: 8 })
+          .opacity(this.showWelcome ? 0 : 1)
+          .animation({
+            duration: 500,
+            curve: Curve.EaseInOut,
+            delay: 300
+          })
           
           // 用户信息卡片
           Column() {

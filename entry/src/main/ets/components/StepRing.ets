@@ -41,13 +41,27 @@ export struct StepRing {
   
   // 动画进度（0-1）
   @State private animationProgress: number = 0;
+
+  @State private lastSteps: number = -1;
   
   aboutToAppear() {
+    this.lastSteps = this.currentSteps;
     if (this.animated) {
       // 启动动画
       this.startAnimation();
     } else {
       this.animationProgress = 1;
+    }
+  }
+
+  aboutToUpdate() {
+    if (this.currentSteps !== this.lastSteps) {
+      this.lastSteps = this.currentSteps;
+      if (this.animated) {
+        this.startAnimation();
+      } else {
+        this.animationProgress = 1;
+      }
     }
   }
   

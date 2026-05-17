@@ -4,6 +4,7 @@
 import { HealthCard } from '../components/index';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
+import router from '@ohos.router';
 
 @Entry
 @Component
@@ -13,11 +14,13 @@ struct GoalSetting {
   
   aboutToAppear() {
     // 初始化用户数据
-    this.user.name = '张三';
-    this.user.dailyStepGoal = DefaultValues.DEFAULT_STEP_GOAL;
-    this.user.dailyWaterGoal = DefaultValues.DEFAULT_WATER_GOAL;
-    this.user.dailySleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
-    this.user.dailyCalorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
+    const initialUser = new User();
+    initialUser.name = '张三';
+    initialUser.dailyStepGoal = DefaultValues.DEFAULT_STEP_GOAL;
+    initialUser.dailyWaterGoal = DefaultValues.DEFAULT_WATER_GOAL;
+    initialUser.dailySleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
+    initialUser.dailyCalorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
+    this.user = initialUser;
     
     // 初始化临时值
     this.tempStepGoal = this.user.dailyStepGoal;
@@ -35,6 +38,10 @@ struct GoalSetting {
   // 保存状态
   @State isSaving: boolean = false;
   @State showSuccess: boolean = false;
+
+  private goBack() {
+    router.back();
+  }
   
 
   
@@ -46,12 +53,14 @@ struct GoalSetting {
     
     // 模拟保存操作
     setTimeout(() => {
-      this.user.updateGoals(
+      const next = new User(this.user);
+      next.updateGoals(
         this.tempStepGoal,
         this.tempWaterGoal,
         this.tempSleepGoal,
         this.tempCalorieGoal
       );
+      this.user = next;
       
       this.isSaving = false;
       this.showSuccess = true;
@@ -432,6 +441,21 @@ struct GoalSetting {
       // 主内容
       Scroll() {
         Column({ space: 16 }) {
+          // 返回
+          Row() {
+            Button('返回')
+              .height(32)
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_700)
+              .backgroundColor(AppColors.WHITE)
+              .border({ width: 1, color: AppColors.GRAY_200 })
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 12, right: 12 })
+              .onClick(() => this.goBack())
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, top: 16 })
+
           // 标题
           Column({ space: 8 }) {
             Text('健康目标设置')

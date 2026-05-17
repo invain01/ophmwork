@@ -5,6 +5,7 @@
 import { HealthCard } from '../components/index';
 import { User } from '../model/User';
 import { AppColors, AppSizes } from '../utils/Constants';
+import router from '@ohos.router';
 
 @Entry
 @Component
@@ -25,6 +26,10 @@ struct Settings {
   
   // 动画状态
   @State darkModeAnimating: boolean = false;
+
+  private goBack() {
+    router.back();
+  }
   
   /**
    * 切换深色模式
@@ -34,7 +39,9 @@ struct Settings {
     
     // 模拟切换动画
     setTimeout(() => {
-      this.user.toggleDarkMode();
+      const next = new User(this.user);
+      next.toggleDarkMode();
+      this.user = next;
       this.darkModeAnimating = false;
       
       // 在实际应用中，这里会更新应用主题
@@ -46,14 +53,18 @@ struct Settings {
    * 切换通知设置
    */
   toggleNotifications() {
-    this.user.notifications = !this.user.notifications;
+    const next = new User(this.user);
+    next.notifications = !next.notifications;
+    this.user = next;
   }
   
   /**
    * 切换健康提醒
    */
   toggleHealthReminders() {
-    this.user.healthReminders = !this.user.healthReminders;
+    const next = new User(this.user);
+    next.healthReminders = !next.healthReminders;
+    this.user = next;
   }
   
   /**
@@ -406,6 +417,21 @@ struct Settings {
       // 主内容
       Scroll() {
         Column({ space: 16 }) {
+          // 返回
+          Row() {
+            Button('返回')
+              .height(32)
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_700)
+              .backgroundColor(AppColors.WHITE)
+              .border({ width: 1, color: AppColors.GRAY_200 })
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 12, right: 12 })
+              .onClick(() => this.goBack())
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, top: 16 })
+
           // 标题
           Column({ space: 8 }) {
             Text('设置')
