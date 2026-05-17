@@ -1,0 +1,260 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "HarmonyCare健康管理应用"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "HarmonyCare"
+    },
+    {
+      "name": "app_name",
+      "value": "HarmonyCare"
+    },
+    {
+      "name": "app_description",
+      "value": "您的健康管理助手"
+    },
+    {
+      "name": "home_title",
+      "value": "健康概览"
+    },
+    {
+      "name": "goal_setting_title",
+      "value": "目标设置"
+    },
+    {
+      "name": "settings_title",
+      "value": "设置"
+    },
+    {
+      "name": "user_info",
+      "value": "用户信息"
+    },
+    {
+      "name": "steps",
+      "value": "步数"
+    },
+    {
+      "name": "water_intake",
+      "value": "饮水"
+    },
+    {
+      "name": "sleep",
+      "value": "睡眠"
+    },
+    {
+      "name": "heart_rate",
+      "value": "心率"
+    },
+    {
+      "name": "calories",
+      "value": "卡路里"
+    },
+    {
+      "name": "today_steps",
+      "value": "今日步数"
+    },
+    {
+      "name": "today_water",
+      "value": "今日饮水"
+    },
+    {
+      "name": "today_sleep",
+      "value": "今日睡眠"
+    },
+    {
+      "name": "goal",
+      "value": "目标"
+    },
+    {
+      "name": "remaining",
+      "value": "剩余"
+    },
+    {
+      "name": "complete",
+      "value": "完成"
+    },
+    {
+      "name": "save",
+      "value": "保存"
+    },
+    {
+      "name": "reset",
+      "value": "重置"
+    },
+    {
+      "name": "cancel",
+      "value": "取消"
+    },
+    {
+      "name": "confirm",
+      "value": "确认"
+    },
+    {
+      "name": "dark_mode",
+      "value": "深色模式"
+    },
+    {
+      "name": "notifications",
+      "value": "通知"
+    },
+    {
+      "name": "health_reminders",
+      "value": "健康提醒"
+    },
+    {
+      "name": "about_app",
+      "value": "关于应用"
+    },
+    {
+      "name": "feedback",
+      "value": "意见反馈"
+    },
+    {
+      "name": "check_update",
+      "value": "检查更新"
+    },
+    {
+      "name": "logout",
+      "value": "退出登录"
+    },
+    {
+      "name": "version",
+      "value": "版本"
+    },
+    {
+      "name": "developer",
+      "value": "开发者"
+    },
+    {
+      "name": "app_description_full",
+      "value": "HarmonyCare 是一个健康管理应用，帮助您追踪日常健康数据，达成健康目标。"
+    },
+    {
+      "name": "add_steps",
+      "value": "增加步数"
+    },
+    {
+      "name": "add_water",
+      "value": "记录饮水"
+    },
+    {
+      "name": "adjust_sleep",
+      "value": "调整睡眠"
+    },
+    {
+      "name": "health_overview",
+      "value": "健康概览"
+    },
+    {
+      "name": "sleep_chart",
+      "value": "睡眠记录"
+    },
+    {
+      "name": "weekly_sleep",
+      "value": "本周睡眠"
+    },
+    {
+      "name": "daily_goal",
+      "value": "每日目标"
+    },
+    {
+      "name": "step_goal",
+      "value": "步数目标"
+    },
+    {
+      "name": "water_goal",
+      "value": "饮水目标"
+    },
+    {
+      "name": "sleep_goal",
+      "value": "睡眠目标"
+    },
+    {
+      "name": "calorie_goal",
+      "value": "卡路里目标"
+    },
+    {
+      "name": "theme_settings",
+      "value": "主题设置"
+    },
+    {
+      "name": "notification_settings",
+      "value": "通知设置"
+    },
+    {
+      "name": "light_theme",
+      "value": "浅色"
+    },
+    {
+      "name": "dark_theme",
+      "value": "深色"
+    },
+    {
+      "name": "switch_theme",
+      "value": "切换主题颜色"
+    },
+    {
+      "name": "receive_notifications",
+      "value": "接收应用通知和提醒"
+    },
+    {
+      "name": "health_reminders_desc",
+      "value": "定时提醒饮水和运动"
+    },
+    {
+      "name": "settings_saved",
+      "value": "设置已保存"
+    },
+    {
+      "name": "goal_updated",
+      "value": "目标已更新"
+    },
+    {
+      "name": "loading",
+      "value": "加载中..."
+    },
+    {
+      "name": "error",
+      "value": "错误"
+    },
+    {
+      "name": "success",
+      "value": "成功"
+    },
+    {
+      "name": "warning",
+      "value": "警告"
+    },
+    {
+      "name": "info",
+      "value": "信息"
+    },
+    {
+      "name": "back",
+      "value": "返回"
+    },
+    {
+      "name": "next",
+      "value": "下一步"
+    },
+    {
+      "name": "finish",
+      "value": "完成"
+    },
+    {
+      "name": "skip",
+      "value": "跳过"
+    },
+    {
+      "name": "continue",
+      "value": "继续"
+    }
+  ]
+}
