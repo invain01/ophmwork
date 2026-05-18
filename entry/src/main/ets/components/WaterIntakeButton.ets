@@ -40,7 +40,7 @@ export struct WaterProgressBar {
   }
   
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.Start }) {
       // 背景条
       Row()
         .width('100%')

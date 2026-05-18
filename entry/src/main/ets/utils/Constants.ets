@@ -44,6 +44,9 @@ export class AppColors {
   static readonly GRADIENT_END = '#764ba2';
   static readonly GRADIENT_DARK_START = '#1a1a2e';
   static readonly GRADIENT_DARK_END = '#16213e';
+  
+  // 背景色
+  static readonly BACKGROUND = '#F8F9FA';
 }
 
 // 应用尺寸
@@ -69,6 +72,7 @@ export class StorageKeys {
   static readonly USER_DATA = 'harmonycare_user_data';
   static readonly HEALTH_DATA = 'harmonycare_health_data';
   static readonly SETTINGS = 'harmonycare_settings';
+  static readonly SELECTED_DATE = 'selected_date';
 }
 
 // 默认值

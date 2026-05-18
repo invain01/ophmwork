@@ -5,6 +5,7 @@
     "pages/Index",
     "pages/StatusSetting",
     "pages/GoalSetting",
-    "pages/Settings"
+    "pages/Settings",
+    "pages/Calendar"
   ]
 }

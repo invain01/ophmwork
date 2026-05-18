@@ -241,7 +241,7 @@ export struct ProgressCardComponent {
       .width('100%')
 
       // 进度条
-      Stack() {
+      Stack({ alignContent: Alignment.Start }) {
         // 背景条
         Row()
           .width('100%')
