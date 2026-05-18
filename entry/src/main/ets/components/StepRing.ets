@@ -41,11 +41,14 @@ export struct StepRing {
   
   // 动画进度（0-1）
   @State private animationProgress: number = 0;
-
-  @State private lastSteps: number = -1;
   
+  // 当前显示的步数（用于动画）
+  @State private displaySteps: number = 0;
+
   aboutToAppear() {
-    this.lastSteps = this.currentSteps;
+    // 防护：确保currentSteps是有效数字
+    this.displaySteps = (typeof this.currentSteps === 'number' && !isNaN(this.currentSteps)) 
+      ? this.currentSteps : 0;
     if (this.animated) {
       // 启动动画
       this.startAnimation();
@@ -55,8 +58,11 @@ export struct StepRing {
   }
 
   aboutToUpdate() {
-    if (this.currentSteps !== this.lastSteps) {
-      this.lastSteps = this.currentSteps;
+    // 当currentSteps变化时，重新启动动画
+    const validSteps = (typeof this.currentSteps === 'number' && !isNaN(this.currentSteps)) 
+      ? this.currentSteps : 0;
+    if (validSteps !== this.displaySteps) {
+      this.displaySteps = validSteps;
       if (this.animated) {
         this.startAnimation();
       } else {
@@ -82,7 +88,11 @@ export struct StepRing {
    * 计算进度百分比
    */
   get percentage(): number {
-    const p = this.currentSteps / this.goalSteps;
+    // 防护：确保goalSteps不为0或undefined
+    if (!this.goalSteps || this.goalSteps <= 0) return 0;
+    // 防护：确保displaySteps是有效数字
+    if (typeof this.displaySteps !== 'number' || isNaN(this.displaySteps)) return 0;
+    const p = this.displaySteps / this.goalSteps;
     return p > 1 ? 1 : p;
   }
   
@@ -133,7 +143,7 @@ export struct StepRing {
       // 中心内容
       Column({ space: 4 }) {
         // 步数
-        Text(`${this.currentSteps}`)
+        Text(`${this.displaySteps}`)
           .fontSize(32)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.textColor)

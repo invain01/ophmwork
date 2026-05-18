@@ -2,7 +2,7 @@
  * HarmonyCare 首页
  * 展示用户信息与健康数据概览
  */
-import { HealthCard, IconCard, MediumStepRing, ProgressCard } from '../components/index';
+import { HealthCard, IconCard, MediumStepRing, ProgressCard, ProgressCardComponent, WaterProgressBar } from '../components/index';
 import { HealthData } from '../model/HealthData';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
@@ -58,17 +58,46 @@ struct Index {
   // 是否显示欢迎动画
   @State showWelcome: boolean = true;
   
-  // 睡眠数据
-  private sleepData: number[] = [6, 7, 7.5, 8, 7, 6.5, 8];
+  // 睡眠数据 - 前六天的模拟数据 + 今天的实际数据
+  private historicalSleepData: number[] = [6.5, 7.2, 7.8, 8.1, 6.9, 7.5]; // 周一到周六
   private days: string[] = ['一', '二', '三', '四', '五', '六', '日'];
+  
+  // 计算完整的睡眠数据（包含今天）
+  private get sleepData(): number[] {
+    // 前六天的历史数据 + 今天的实际数据
+    return [...this.historicalSleepData, this.healthData.sleepHours];
+  }
   
   // 计算最大睡眠时长
   private get maxSleep(): number {
-    return Math.max(...this.sleepData);
+    const max = Math.max(...this.sleepData);
+    return max > 0 ? max : 8; // 防止除零
   }
 
   private get waterPercent(): number {
-    return Math.min(this.healthData.waterIntake / this.healthData.waterGoal, 1);
+    // 防护：确保healthData存在
+    if (!this.healthData) return 0;
+    // 防护：确保waterGoal不为0、undefined或NaN
+    if (!this.healthData.waterGoal || this.healthData.waterGoal <= 0 || 
+        typeof this.healthData.waterGoal !== 'number' || isNaN(this.healthData.waterGoal)) {
+      return 0;
+    }
+    // 防护：确保waterIntake是有效数字
+    if (typeof this.healthData.waterIntake !== 'number' || isNaN(this.healthData.waterIntake)) {
+      return 0;
+    }
+    const percentage = this.healthData.waterIntake / this.healthData.waterGoal;
+    // 防护：确保计算结果是有效数字
+    if (isNaN(percentage) || !isFinite(percentage)) return 0;
+    return Math.min(percentage, 1);
+  }
+  
+  // 格式化饮水百分比显示（防止NaN）
+  private get waterPercentText(): string {
+    const percent = Math.round(this.waterPercent * 100);
+    // 确保percent是有效数字
+    if (isNaN(percent) || !isFinite(percent)) return '0%';
+    return `${percent}%`;
   }
 
   private goToGoalSetting() {
@@ -301,28 +330,18 @@ struct Index {
           }
           .layoutWeight(1)
 
-          Text(`${Math.round(this.waterPercent * 100)}%`)
+          Text(this.waterPercentText)
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor(AppColors.WATER_COLOR)
         }
         .width('100%')
 
-        Stack() {
-          Row()
-            .width('100%')
-            .height(12)
-            .backgroundColor(AppColors.GRAY_200)
-            .borderRadius(6)
-
-          Row()
-            .width(`${this.waterPercent * 100}%`)
-            .height(12)
-            .backgroundColor(AppColors.WATER_COLOR)
-            .borderRadius(6)
-        }
-        .width('100%')
-        .height(12)
+        // 使用响应式进度条组件
+        WaterProgressBar({
+          currentWater: this.healthData.waterIntake,
+          waterGoal: this.healthData.waterGoal
+        })
 
         Row({ space: 12 }) {
           Button('+250ml')
@@ -371,15 +390,15 @@ struct Index {
       iconColor: AppColors.SLEEP_COLOR
     }) {
       Column({ space: 12 }) {
-        // 睡眠进度
-        ProgressCard(
-          '昨晚睡眠',
-          this.healthData.sleepHours,
-          this.healthData.sleepGoal,
-          '小时',
-          AppColors.SLEEP_COLOR,
-          'sleep'
-        )
+        // 睡眠进度 - 直接使用组件而不是@Builder函数
+        ProgressCardComponent({
+          title: '昨晚睡眠',
+          value: this.healthData.sleepHours,
+          total: this.healthData.sleepGoal,
+          unit: '小时',
+          color: AppColors.SLEEP_COLOR,
+          icon: 'sleep'
+        })
         
         // 睡眠调整按钮
         Row({ space: 12 }) {

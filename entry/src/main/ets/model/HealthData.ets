@@ -41,25 +41,49 @@ export class HealthData {
   
   // 计算步数完成百分比
   get stepsPercentage(): number {
+    // 防护：确保stepGoal不为0或undefined
+    if (!this.stepGoal || this.stepGoal <= 0) return 0;
+    // 防护：确保steps是有效数字
+    if (typeof this.steps !== 'number' || isNaN(this.steps)) return 0;
     const percentage = (this.steps / this.stepGoal) * 100;
+    // 防护：确保计算结果是有效数字
+    if (isNaN(percentage) || !isFinite(percentage)) return 0;
     return percentage > 100 ? 100 : percentage;
   }
   
   // 计算饮水完成百分比
   get waterPercentage(): number {
+    // 防护：确保waterGoal不为0或undefined
+    if (!this.waterGoal || this.waterGoal <= 0) return 0;
+    // 防护：确保waterIntake是有效数字
+    if (typeof this.waterIntake !== 'number' || isNaN(this.waterIntake)) return 0;
     const percentage = (this.waterIntake / this.waterGoal) * 100;
+    // 防护：确保计算结果是有效数字
+    if (isNaN(percentage) || !isFinite(percentage)) return 0;
     return percentage > 100 ? 100 : percentage;
   }
   
   // 计算睡眠完成百分比
   get sleepPercentage(): number {
+    // 防护：确保sleepGoal不为0或undefined
+    if (!this.sleepGoal || this.sleepGoal <= 0) return 0;
+    // 防护：确保sleepHours是有效数字
+    if (typeof this.sleepHours !== 'number' || isNaN(this.sleepHours)) return 0;
     const percentage = (this.sleepHours / this.sleepGoal) * 100;
+    // 防护：确保计算结果是有效数字
+    if (isNaN(percentage) || !isFinite(percentage)) return 0;
     return percentage > 100 ? 100 : percentage;
   }
   
   // 计算卡路里完成百分比
   get caloriesPercentage(): number {
+    // 防护：确保calorieGoal不为0或undefined
+    if (!this.calorieGoal || this.calorieGoal <= 0) return 0;
+    // 防护：确保caloriesBurned是有效数字
+    if (typeof this.caloriesBurned !== 'number' || isNaN(this.caloriesBurned)) return 0;
     const percentage = (this.caloriesBurned / this.calorieGoal) * 100;
+    // 防护：确保计算结果是有效数字
+    if (isNaN(percentage) || !isFinite(percentage)) return 0;
     return percentage > 100 ? 100 : percentage;
   }
   

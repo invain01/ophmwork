@@ -4,6 +4,62 @@
  */
 import { AppColors, AppSizes } from '../utils/Constants';
 
+/**
+ * 饮水进度条组件 - 支持响应式更新
+ */
+@Component
+export struct WaterProgressBar {
+  @Prop @Watch('onDataChange') currentWater: number = 0;
+  @Prop @Watch('onDataChange') waterGoal: number = 2000;
+  
+  // 内部状态：计算后的百分比
+  @State private displayPercentage: number = 0;
+  
+  // 数据变化时重新计算
+  onDataChange() {
+    this.calculatePercentage();
+  }
+  
+  aboutToAppear() {
+    this.calculatePercentage();
+  }
+  
+  // 计算百分比（带防护）
+  private calculatePercentage() {
+    // 防护：确保waterGoal不为0或undefined
+    if (!this.waterGoal || this.waterGoal <= 0 || typeof this.waterGoal !== 'number') {
+      this.displayPercentage = 0;
+      return;
+    }
+    // 防护：确保currentWater是有效数字
+    if (typeof this.currentWater !== 'number' || isNaN(this.currentWater)) {
+      this.displayPercentage = 0;
+      return;
+    }
+    this.displayPercentage = Math.min(this.currentWater / this.waterGoal, 1);
+  }
+  
+  build() {
+    Stack() {
+      // 背景条
+      Row()
+        .width('100%')
+        .height(12)
+        .backgroundColor(AppColors.GRAY_200)
+        .borderRadius(6)
+
+      // 进度条
+      Row()
+        .width(`${this.displayPercentage * 100}%`)
+        .height(12)
+        .backgroundColor(AppColors.WATER_COLOR)
+        .borderRadius(6)
+    }
+    .width('100%')
+    .height(12)
+  }
+}
+
 @Component
 export struct WaterIntakeButton {
   // 当前饮水量（毫升）

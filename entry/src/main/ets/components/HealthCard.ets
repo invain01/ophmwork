@@ -184,6 +184,94 @@ export struct HealthCard {
   }
 }
 
+/**
+ * 进度卡片组件 - 支持响应式更新
+ */
+@Component
+export struct ProgressCardComponent {
+  @Prop @Watch('onDataChange') title: string = '';
+  @Prop @Watch('onDataChange') value: number = 0;
+  @Prop @Watch('onDataChange') total: number = 100;
+  @Prop unit: string = '';
+  @Prop color: string = AppColors.PRIMARY;
+  @Prop icon: string = '';
+  
+  // 内部状态：计算后的百分比
+  @State private displayPercentage: number = 0;
+  
+  // 数据变化时重新计算
+  onDataChange() {
+    this.calculatePercentage();
+  }
+  
+  aboutToAppear() {
+    this.calculatePercentage();
+  }
+  
+  // 计算百分比（带防护）
+  private calculatePercentage() {
+    // 防护：确保total不为0或undefined
+    if (!this.total || this.total <= 0 || typeof this.total !== 'number') {
+      this.displayPercentage = 0;
+      return;
+    }
+    // 防护：确保value是有效数字
+    if (typeof this.value !== 'number' || isNaN(this.value)) {
+      this.displayPercentage = 0;
+      return;
+    }
+    const p = (this.value / this.total) * 100;
+    this.displayPercentage = Math.min(Math.round(p), 100);
+  }
+  
+  build() {
+    Column({ space: 8 }) {
+      // 标题和数值
+      Row() {
+        Text(this.title)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(AppColors.GRAY_700)
+          .layoutWeight(1)
+
+        Text(`${this.value} / ${this.total} ${this.unit}`)
+          .fontSize(14)
+          .fontColor(AppColors.GRAY_600)
+      }
+      .width('100%')
+
+      // 进度条
+      Stack() {
+        // 背景条
+        Row()
+          .width('100%')
+          .height(8)
+          .backgroundColor(AppColors.GRAY_200)
+          .borderRadius(4)
+
+        // 进度条
+        Row()
+          .width(`${this.displayPercentage}%`)
+          .height(8)
+          .backgroundColor(this.color)
+          .borderRadius(4)
+      }
+      .width('100%')
+      .height(8)
+
+      // 百分比
+      Row() {
+        Text(`${this.displayPercentage}%`)
+          .fontSize(12)
+          .fontColor(AppColors.GRAY_600)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.End)
+    }
+    .width('100%')
+  }
+}
+
 @Builder
 export function ProgressCard(
   title: string,
@@ -193,50 +281,14 @@ export function ProgressCard(
   color: string,
   icon: string
 ) {
-  Column({ space: 8 }) {
-    // 标题和数值
-    Row() {
-      Text(title)
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(AppColors.GRAY_700)
-        .layoutWeight(1)
-
-      Text(`${value} / ${total} ${unit}`)
-        .fontSize(14)
-        .fontColor(AppColors.GRAY_600)
-    }
-    .width('100%')
-
-    // 进度条
-    Stack() {
-      // 背景条
-      Row()
-        .width('100%')
-        .height(8)
-        .backgroundColor(AppColors.GRAY_200)
-        .borderRadius(4)
-
-      // 进度条
-      Row()
-        .width(`${Math.min(Math.round((value / total) * 100), 100)}%`)
-        .height(8)
-        .backgroundColor(color)
-        .borderRadius(4)
-    }
-    .width('100%')
-    .height(8)
-
-    // 百分比
-    Row() {
-      Text(`${Math.min(Math.round((value / total) * 100), 100)}%`)
-        .fontSize(12)
-        .fontColor(AppColors.GRAY_600)
-    }
-    .width('100%')
-    .justifyContent(FlexAlign.End)
-  }
-  .width('100%')
+  ProgressCardComponent({
+    title: title,
+    value: value,
+    total: total,
+    unit: unit,
+    color: color,
+    icon: icon
+  })
 }
 
 @Builder
