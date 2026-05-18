@@ -24,9 +24,6 @@ export struct WaterIntakeButton {
   // 是否显示动画
   @Prop animated: boolean = true;
   
-  // 点击事件回调
-  onWaterAdded?: (amount: number, newTotal: number) => void;
-  
   // 按钮状态
   @State isPressed: boolean = false;
   @State scaleValue: number = 1;
@@ -53,13 +50,6 @@ export struct WaterIntakeButton {
       }, 100);
     }
     
-    // 增加水量
-    const newWater = this.currentWater + this.incrementAmount;
-    
-    // 触发回调
-    if (this.onWaterAdded) {
-      this.onWaterAdded(this.incrementAmount, newWater);
-    }
   }
   
   build() {
@@ -137,14 +127,12 @@ export struct WaterIntakeButton {
    * 创建小尺寸饮水按钮
    */
   @Builder static SmallWaterButton(
-    currentWater: number,
-    onWaterAdded?: (amount: number, newTotal: number) => void
+    currentWater: number
   ) {
     WaterIntakeButton({
       currentWater: currentWater,
       incrementAmount: 250,
-      buttonSize: 60,
-      onWaterAdded: onWaterAdded
+      buttonSize: 60
     })
   }
   
@@ -152,14 +140,12 @@ export struct WaterIntakeButton {
    * 创建中尺寸饮水按钮
    */
   @Builder static MediumWaterButton(
-    currentWater: number,
-    onWaterAdded?: (amount: number, newTotal: number) => void
+    currentWater: number
   ) {
     WaterIntakeButton({
       currentWater: currentWater,
       incrementAmount: 250,
-      buttonSize: 80,
-      onWaterAdded: onWaterAdded
+      buttonSize: 80
     })
   }
   
@@ -167,14 +153,12 @@ export struct WaterIntakeButton {
    * 创建大尺寸饮水按钮
    */
   @Builder static LargeWaterButton(
-    currentWater: number,
-    onWaterAdded?: (amount: number, newTotal: number) => void
+    currentWater: number
   ) {
     WaterIntakeButton({
       currentWater: currentWater,
       incrementAmount: 500,
-      buttonSize: 100,
-      onWaterAdded: onWaterAdded
+      buttonSize: 100
     })
   }
   
@@ -183,8 +167,7 @@ export struct WaterIntakeButton {
    */
   @Builder static WaterProgressCard(
     currentWater: number,
-    waterGoal: number = 2000,
-    onWaterAdded?: (amount: number, newTotal: number) => void
+    waterGoal: number = 2000
   ) {
     Column({ space: 16 }) {
       // 标题和进度
@@ -229,11 +212,7 @@ export struct WaterIntakeButton {
       
       // 饮水按钮
       Row({ space: 12 }) {
-        SmallWaterButton(currentWater, (amount, newTotal) => {
-          if (onWaterAdded) {
-            onWaterAdded(amount, newTotal);
-          }
-        })
+        SmallWaterButton(currentWater)
         
         Text('点击水杯记录饮水')
           .fontSize(12)
@@ -276,48 +255,41 @@ export struct WaterIntakeButton {
 
 @Builder
 export function SmallWaterButton(
-  currentWater: number,
-  onWaterAdded?: (amount: number, newTotal: number) => void
+  currentWater: number
 ) {
   WaterIntakeButton({
     currentWater: currentWater,
     incrementAmount: 250,
-    buttonSize: 60,
-    onWaterAdded: onWaterAdded
+    buttonSize: 60
   })
 }
 
 @Builder
 export function MediumWaterButton(
-  currentWater: number,
-  onWaterAdded?: (amount: number, newTotal: number) => void
+  currentWater: number
 ) {
   WaterIntakeButton({
     currentWater: currentWater,
     incrementAmount: 250,
-    buttonSize: 80,
-    onWaterAdded: onWaterAdded
+    buttonSize: 80
   })
 }
 
 @Builder
 export function LargeWaterButton(
-  currentWater: number,
-  onWaterAdded?: (amount: number, newTotal: number) => void
+  currentWater: number
 ) {
   WaterIntakeButton({
     currentWater: currentWater,
     incrementAmount: 500,
-    buttonSize: 100,
-    onWaterAdded: onWaterAdded
+    buttonSize: 100
   })
 }
 
 @Builder
 export function WaterProgressCard(
   currentWater: number,
-  waterGoal: number = 2000,
-  onWaterAdded?: (amount: number, newTotal: number) => void
+  waterGoal: number = 2000
 ) {
   Column({ space: 16 }) {
     // 标题和进度
@@ -362,11 +334,7 @@ export function WaterProgressCard(
 
     // 饮水按钮
     Row({ space: 12 }) {
-      SmallWaterButton(currentWater, (amount, newTotal) => {
-        if (onWaterAdded) {
-          onWaterAdded(amount, newTotal);
-        }
-      })
+      SmallWaterButton(currentWater)
 
       Text('点击水杯记录饮水')
         .fontSize(12)

@@ -2,7 +2,7 @@
  * HarmonyCare 首页
  * 展示用户信息与健康数据概览
  */
-import { HealthCard, IconCard, MediumStepRing, ProgressCard, WaterProgressCard } from '../components/index';
+import { HealthCard, IconCard, MediumStepRing, ProgressCard } from '../components/index';
 import { HealthData } from '../model/HealthData';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
@@ -26,34 +26,30 @@ struct Index {
       router.replaceUrl({ url: 'pages/Login' });
       return;
     }
-    
-    // 初始化用户数据
-    this.user = new User();
-    this.user.name = '张三';
-    this.user.age = 28;
-    this.user.height = 175;
-    this.user.weight = 70;
-    this.user.dailyStepGoal = 10000;
-    this.user.dailyWaterGoal = 2000;
-    this.user.dailySleepGoal = 8;
-    this.user.dailyCalorieGoal = 500;
-    
+
+    await this.loadUser();
+
     // 初始化健康数据
-    this.healthData = new HealthData();
-    this.healthData.steps = DefaultValues.DEFAULT_STEPS;
-    this.healthData.stepGoal = DefaultValues.DEFAULT_STEP_GOAL;
-    this.healthData.waterIntake = DefaultValues.DEFAULT_WATER;
-    this.healthData.waterGoal = DefaultValues.DEFAULT_WATER_GOAL;
-    this.healthData.sleepHours = DefaultValues.DEFAULT_SLEEP;
-    this.healthData.sleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
-    this.healthData.heartRate = DefaultValues.DEFAULT_HEART_RATE;
-    this.healthData.caloriesBurned = DefaultValues.DEFAULT_CALORIES;
-    this.healthData.calorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
+    const initData = new HealthData();
+    initData.steps = DefaultValues.DEFAULT_STEPS;
+    initData.stepGoal = DefaultValues.DEFAULT_STEP_GOAL;
+    initData.waterIntake = DefaultValues.DEFAULT_WATER;
+    initData.waterGoal = DefaultValues.DEFAULT_WATER_GOAL;
+    initData.sleepHours = DefaultValues.DEFAULT_SLEEP;
+    initData.sleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
+    initData.heartRate = DefaultValues.DEFAULT_HEART_RATE;
+    initData.caloriesBurned = DefaultValues.DEFAULT_CALORIES;
+    initData.calorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
+    this.healthData = initData;
     
     // 模拟加载数据
     setTimeout(() => {
       this.showWelcome = false;
     }, 1000);
+  }
+
+  async onPageShow() {
+    await this.loadUser();
   }
   
   // 页面滚动位置
@@ -71,12 +67,25 @@ struct Index {
     return Math.max(...this.sleepData);
   }
 
+  private get waterPercent(): number {
+    return Math.min(this.healthData.waterIntake / this.healthData.waterGoal, 1);
+  }
+
   private goToGoalSetting() {
     router.pushUrl({ url: 'pages/GoalSetting' });
   }
 
+  private goToStatusSetting() {
+    router.pushUrl({ url: 'pages/StatusSetting' });
+  }
+
   private goToSettings() {
     router.pushUrl({ url: 'pages/Settings' });
+  }
+
+  private async loadUser() {
+    const currentUser = await AuthService.getInstance().getCurrentUser();
+    this.user = currentUser ?? new User();
   }
   
 
@@ -85,26 +94,20 @@ struct Index {
    * 增加步数（可为负数）
    */
   addSteps(steps: number) {
-    const next = new HealthData(this.healthData);
-    next.addSteps(steps);
-    // 确保步数不为负数
-    if (next.steps < 0) {
-      next.steps = 0;
-    }
-    this.healthData = next;
+    const nextSteps = Math.max(this.healthData.steps + steps, 0);
+    const newData = new HealthData(this.healthData);
+    newData.steps = nextSteps;
+    this.healthData = newData;
   }
   
   /**
    * 增加饮水量（可为负数）
    */
   addWater(amount: number) {
-    const next = new HealthData(this.healthData);
-    next.addWater(amount);
-    // 确保饮水量不为负数
-    if (next.waterIntake < 0) {
-      next.waterIntake = 0;
-    }
-    this.healthData = next;
+    const nextWater = Math.max(this.healthData.waterIntake + amount, 0);
+    const newData = new HealthData(this.healthData);
+    newData.waterIntake = nextWater;
+    this.healthData = newData;
   }
   
   /**
@@ -284,13 +287,77 @@ struct Index {
    */
   @Builder
   buildWaterCard() {
-    WaterProgressCard(
-      this.healthData.waterIntake,
-      this.healthData.waterGoal,
-      (amount: number, newTotal: number) => {
-        this.addWater(amount);
+    HealthCard({
+      title: '今日饮水',
+      cardBackgroundColor: AppColors.WHITE,
+      iconColor: AppColors.WATER_COLOR
+    }) {
+      Column({ space: 16 }) {
+        Row() {
+          Column({ space: 4 }) {
+            Text(`${this.healthData.waterIntake}ml / ${this.healthData.waterGoal}ml`)
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_600)
+          }
+          .layoutWeight(1)
+
+          Text(`${Math.round(this.waterPercent * 100)}%`)
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(AppColors.WATER_COLOR)
+        }
+        .width('100%')
+
+        Stack() {
+          Row()
+            .width('100%')
+            .height(12)
+            .backgroundColor(AppColors.GRAY_200)
+            .borderRadius(6)
+
+          Row()
+            .width(`${this.waterPercent * 100}%`)
+            .height(12)
+            .backgroundColor(AppColors.WATER_COLOR)
+            .borderRadius(6)
+        }
+        .width('100%')
+        .height(12)
+
+        Row({ space: 12 }) {
+          Button('+250ml')
+            .height(36)
+            .fontSize(12)
+            .fontColor(AppColors.WHITE)
+            .backgroundColor(AppColors.WATER_COLOR)
+            .borderRadius(AppSizes.BUTTON_RADIUS)
+            .onClick(() => this.addWater(250))
+
+          Text('点击按钮记录饮水')
+            .fontSize(12)
+            .fontColor(AppColors.GRAY_600)
+            .layoutWeight(1)
+        }
+        .width('100%')
+
+        if (this.healthData.waterGoal - this.healthData.waterIntake > 0) {
+          Text(`还需饮用 ${this.healthData.waterGoal - this.healthData.waterIntake}ml 完成目标`)
+            .fontSize(12)
+            .fontColor(AppColors.GRAY_500)
+            .width('100%')
+            .textAlign(TextAlign.Center)
+        } else {
+          Text('🎉 恭喜完成今日饮水目标！')
+            .fontSize(12)
+            .fontColor(AppColors.SUCCESS)
+            .fontWeight(FontWeight.Medium)
+            .width('100%')
+            .textAlign(TextAlign.Center)
+        }
       }
-    )
+      .width('100%')
+      .padding({ top: 8, bottom: 8 })
+    }
   }
   
   /**
@@ -703,6 +770,16 @@ struct Index {
               .borderRadius(AppSizes.BUTTON_RADIUS)
               .padding({ left: 12, right: 12 })
               .onClick(() => this.goToGoalSetting())
+
+            Button('状态设置')
+              .height(36)
+              .fontSize(14)
+              .fontColor(AppColors.PRIMARY)
+              .backgroundColor(AppColors.WHITE)
+              .border({ width: 1, color: AppColors.GRAY_200 })
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 12, right: 12 })
+              .onClick(() => this.goToStatusSetting())
 
             Button('设置')
               .height(36)
