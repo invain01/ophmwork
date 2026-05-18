@@ -5,7 +5,10 @@
 import { HealthCard } from '../components/index';
 import { User } from '../model/User';
 import { AppColors, AppSizes } from '../utils/Constants';
+import { AuthService } from '../utils/AuthService';
 import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
+
 
 @Entry
 @Component
@@ -13,7 +16,13 @@ struct Settings {
   // 用户设置
   @State user: User = new User();
   
-  aboutToAppear() {
+  async aboutToAppear() {
+    // 检查登录状态
+    const isLoggedIn = await AuthService.getInstance().isLoggedIn();
+    if (!isLoggedIn) {
+      router.replaceUrl({ url: 'pages/Login' });
+      return;
+    }
     // 初始化用户数据
     this.user.name = '张三';
     this.user.darkMode = false;
@@ -26,6 +35,11 @@ struct Settings {
   
   // 动画状态
   @State darkModeAnimating: boolean = false;
+
+  // 反馈相关状态
+  @State showFeedbackDialog: boolean = false;
+  @State feedbackText: string = '';
+  @State showFeedbackSubmitted: boolean = false;
 
   private goBack() {
     router.back();
@@ -65,6 +79,51 @@ struct Settings {
     const next = new User(this.user);
     next.healthReminders = !next.healthReminders;
     this.user = next;
+  }
+
+  /**
+   * 打开反馈对话框
+   */
+  openFeedbackDialog() {
+    this.feedbackText = '';
+    this.showFeedbackDialog = true;
+  }
+
+  /**
+   * 提交反馈
+   */
+  submitFeedback() {
+    if (this.feedbackText.trim().length === 0) {
+      promptAction.showToast({
+        message: '请输入反馈内容',
+        duration: 2000
+      });
+      return;
+    }
+    
+    // 在实际应用中，这里会将反馈发送到服务器
+    // 这里模拟提交成功
+    this.showFeedbackDialog = false;
+    this.showFeedbackSubmitted = true;
+    
+    // 显示成功通知
+    promptAction.showToast({
+      message: '反馈已提交，感谢您的意见！',
+      duration: 2000
+    });
+    
+    // 3秒后隐藏成功提示
+    setTimeout(() => {
+      this.showFeedbackSubmitted = false;
+    }, 3000);
+  }
+
+  /**
+   * 取消反馈
+   */
+  cancelFeedback() {
+    this.showFeedbackDialog = false;
+    this.feedbackText = '';
   }
   
   /**
@@ -368,7 +427,7 @@ struct Settings {
         })
         .borderRadius(AppSizes.BUTTON_RADIUS)
         .onClick(() => {
-          // 在实际应用中，这里会打开反馈页面
+          this.openFeedbackDialog();
         })
       
       // 检查更新按钮
@@ -397,12 +456,158 @@ struct Settings {
           color: AppColors.ERROR
         })
         .borderRadius(AppSizes.BUTTON_RADIUS)
-        .onClick(() => {
-          // 在实际应用中，这里会处理退出登录逻辑
+        .onClick(async () => {
+          // 显示确认对话框
+          try {
+            const result = await promptAction.showDialog({
+              title: '确认退出',
+              message: '确定要退出登录吗？',
+              buttons: [
+                { text: '取消', color: '#000000' },
+                { text: '确定', color: '#FF0000' }
+              ]
+            });
+            if (result.index === 1) { // 用户点击了确定
+              await AuthService.getInstance().logout();
+              router.replaceUrl({ url: 'pages/Login' });
+            }
+          } catch (error) {
+            console.error('退出登录失败:', error);
+          }
         })
     }
     .width('100%')
     .padding({ top: 8, bottom: 8 })
+  }
+
+  /**
+   * 构建反馈对话框
+   */
+  @Builder
+  buildFeedbackDialog() {
+    if (this.showFeedbackDialog) {
+      // 半透明背景
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0,0,0,0.5)')
+        .position({ x: 0, y: 0 })
+        .onClick(() => {
+          // 点击背景关闭对话框
+          this.cancelFeedback();
+        })
+
+      // 对话框内容
+      Column({ space: 24 }) {
+        // 标题
+        Text('意见反馈')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.GRAY_900)
+        
+        // 输入框
+        TextInput({ 
+          text: this.feedbackText,
+          placeholder: '请输入您的反馈意见...'
+        })
+          .width('100%')
+          .height(120)
+          .fontSize(16)
+          .fontColor(AppColors.GRAY_900)
+          .borderRadius(AppSizes.BUTTON_RADIUS)
+          .border({ width: 1, color: AppColors.GRAY_300 })
+          .padding(12)
+          .onChange((value: string) => {
+            this.feedbackText = value;
+          })
+        
+        // 按钮行
+        Row({ space: 12 }) {
+          Button('取消')
+            .layoutWeight(1)
+            .height(48)
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(AppColors.GRAY_700)
+            .backgroundColor(AppColors.GRAY_100)
+            .borderRadius(AppSizes.BUTTON_RADIUS)
+            .onClick(() => {
+              this.cancelFeedback();
+            })
+          
+          Button('提交')
+            .layoutWeight(1)
+            .height(48)
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(AppColors.WHITE)
+            .backgroundColor(AppColors.PRIMARY)
+            .borderRadius(AppSizes.BUTTON_RADIUS)
+            .onClick(() => {
+              this.submitFeedback();
+            })
+        }
+        .width('100%')
+      }
+      .width('80%')
+      .constraintSize({ maxWidth: 400 })
+      .padding(24)
+      .backgroundColor(AppColors.WHITE)
+      .borderRadius(AppSizes.CARD_RADIUS)
+      .shadow({
+        radius: 24,
+        color: AppColors.BLACK_10,
+        offsetX: 0,
+        offsetY: 8
+      })
+      .position({ x: '10%', y: '30%' })
+    }
+  }
+
+  /**
+   * 构建反馈提交成功提示
+   */
+  @Builder
+  buildFeedbackSuccess() {
+    if (this.showFeedbackSubmitted) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0,0,0,0.5)')
+        .position({ x: 0, y: 0 })
+        .onClick(() => {
+          this.showFeedbackSubmitted = false;
+        })
+
+      Column({ space: 16 }) {
+        Text('✓')
+          .fontSize(48)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.SUCCESS)
+        
+        Text('反馈已提交')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(AppColors.GRAY_900)
+        
+        Text('感谢您的反馈，我们会尽快处理！')
+          .fontSize(14)
+          .fontColor(AppColors.GRAY_600)
+          .textAlign(TextAlign.Center)
+      }
+      .width('80%')
+      .constraintSize({ maxWidth: 300 })
+      .padding(32)
+      .backgroundColor(AppColors.WHITE)
+      .borderRadius(AppSizes.CARD_RADIUS)
+      .shadow({
+        radius: 24,
+        color: AppColors.BLACK_10,
+        offsetX: 0,
+        offsetY: 8
+      })
+      .position({ x: '10%', y: '40%' })
+    }
   }
   
   build() {
@@ -483,6 +688,12 @@ struct Settings {
       .scrollable(ScrollDirection.Vertical)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+
+      // 反馈对话框
+      this.buildFeedbackDialog()
+
+      // 反馈提交成功提示
+      this.buildFeedbackSuccess()
     }
     .width('100%')
     .height('100%')

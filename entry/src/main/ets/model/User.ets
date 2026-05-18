@@ -3,6 +3,9 @@
  */
 export class User {
   id: string = 'user_001';
+  username: string = '';
+  password: string = '';
+  email: string = '';
   name: string = '张三';
   avatar: string = '';
   age: number = 28;
@@ -24,6 +27,9 @@ export class User {
   constructor(data?: Partial<User>) {
     if (data) {
       if (data.id !== undefined) this.id = data.id;
+      if (data.username !== undefined) this.username = data.username;
+      if (data.password !== undefined) this.password = data.password;
+      if (data.email !== undefined) this.email = data.email;
       if (data.name !== undefined) this.name = data.name;
       if (data.avatar !== undefined) this.avatar = data.avatar;
       if (data.age !== undefined) this.age = data.age;

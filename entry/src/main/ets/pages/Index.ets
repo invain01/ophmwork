@@ -6,7 +6,9 @@ import { HealthCard, IconCard, MediumStepRing, ProgressCard, WaterProgressCard }
 import { HealthData } from '../model/HealthData';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
+import { AuthService } from '../utils/AuthService';
 import router from '@ohos.router';
+
 
 @Entry
 @Component
@@ -17,7 +19,14 @@ struct Index {
   // 健康数据
   @State healthData: HealthData = new HealthData();
   
-  aboutToAppear() {
+  async aboutToAppear() {
+    // 检查登录状态
+    const isLoggedIn = await AuthService.getInstance().isLoggedIn();
+    if (!isLoggedIn) {
+      router.replaceUrl({ url: 'pages/Login' });
+      return;
+    }
+    
     // 初始化用户数据
     this.user = new User();
     this.user.name = '张三';
@@ -73,20 +82,28 @@ struct Index {
 
   
   /**
-   * 增加步数
+   * 增加步数（可为负数）
    */
   addSteps(steps: number) {
     const next = new HealthData(this.healthData);
     next.addSteps(steps);
+    // 确保步数不为负数
+    if (next.steps < 0) {
+      next.steps = 0;
+    }
     this.healthData = next;
   }
   
   /**
-   * 增加饮水量
+   * 增加饮水量（可为负数）
    */
   addWater(amount: number) {
     const next = new HealthData(this.healthData);
     next.addWater(amount);
+    // 确保饮水量不为负数
+    if (next.waterIntake < 0) {
+      next.waterIntake = 0;
+    }
     this.healthData = next;
   }
   
@@ -96,6 +113,38 @@ struct Index {
   updateSleep(hours: number) {
     const next = new HealthData(this.healthData);
     next.updateSleep(hours);
+    this.healthData = next;
+  }
+
+  /**
+   * 增加心率（可为负数）
+   */
+  addHeartRate(rate: number) {
+    const next = new HealthData(this.healthData);
+    const newRate = this.healthData.heartRate + rate;
+    // 确保心率在合理范围内（30-200）
+    if (newRate < 30) {
+      next.updateHeartRate(30);
+    } else if (newRate > 200) {
+      next.updateHeartRate(200);
+    } else {
+      next.updateHeartRate(newRate);
+    }
+    this.healthData = next;
+  }
+
+  /**
+   * 增加卡路里（可为负数）
+   */
+  addCalories(calories: number) {
+    const next = new HealthData(this.healthData);
+    const newCalories = this.healthData.caloriesBurned + calories;
+    // 确保卡路里不为负数
+    if (newCalories < 0) {
+      next.updateCalories(0);
+    } else {
+      next.updateCalories(newCalories);
+    }
     this.healthData = next;
   }
   
@@ -310,44 +359,208 @@ struct Index {
       iconColor: AppColors.PRIMARY
     }) {
       Grid() {
+        // 心率
         GridItem() {
-          IconCard(
-            '心率',
-            `${this.healthData.heartRate}`,
-            'heart',
-            AppColors.HEART_COLOR,
-            AppColors.GRAY_50
-          )
+          Column({ space: 8 }) {
+            Image('heart')
+              .width(32)
+              .height(32)
+              .objectFit(ImageFit.Contain)
+              .fillColor(AppColors.HEART_COLOR)
+            
+            Text(`${this.healthData.heartRate}`)
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.GRAY_900)
+            
+            Text('心率')
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_600)
+            
+            Row({ space: 4 }) {
+              Button('-')
+                .width(32)
+                .height(32)
+                .fontSize(14)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.HEART_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addHeartRate(-5);
+                })
+              
+              Button('+')
+                .width(32)
+                .height(32)
+                .fontSize(14)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.HEART_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addHeartRate(5);
+                })
+            }
+            .margin({ top: 4 })
+          }
+          .width('100%')
+          .padding(12)
+          .backgroundColor(AppColors.GRAY_50)
+          .borderRadius(AppSizes.CARD_RADIUS)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
         }
         
+        // 卡路里
         GridItem() {
-          IconCard(
-            '卡路里',
-            `${this.healthData.caloriesBurned}`,
-            'calories',
-            AppColors.CALORIES_COLOR,
-            AppColors.GRAY_50
-          )
+          Column({ space: 8 }) {
+            Image('calories')
+              .width(32)
+              .height(32)
+              .objectFit(ImageFit.Contain)
+              .fillColor(AppColors.CALORIES_COLOR)
+            
+            Text(`${this.healthData.caloriesBurned}`)
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.GRAY_900)
+            
+            Text('卡路里')
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_600)
+            
+            Row({ space: 4 }) {
+              Button('-10')
+                .width(48)
+                .height(32)
+                .fontSize(12)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.CALORIES_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addCalories(-10);
+                })
+              
+              Button('+10')
+                .width(48)
+                .height(32)
+                .fontSize(12)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.CALORIES_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addCalories(10);
+                })
+            }
+            .margin({ top: 4 })
+          }
+          .width('100%')
+          .padding(12)
+          .backgroundColor(AppColors.GRAY_50)
+          .borderRadius(AppSizes.CARD_RADIUS)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
         }
         
+        // 步数
         GridItem() {
-          IconCard(
-            '步数',
-            `${this.healthData.steps}`,
-            'steps',
-            AppColors.STEPS_COLOR,
-            AppColors.GRAY_50
-          )
+          Column({ space: 8 }) {
+            Image('steps')
+              .width(32)
+              .height(32)
+              .objectFit(ImageFit.Contain)
+              .fillColor(AppColors.STEPS_COLOR)
+            
+            Text(`${this.healthData.steps}`)
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.GRAY_900)
+            
+            Text('步数')
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_600)
+            
+            Row({ space: 4 }) {
+              Button('-500')
+                .width(48)
+                .height(32)
+                .fontSize(12)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.STEPS_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addSteps(-500);
+                })
+              
+              Button('+500')
+                .width(48)
+                .height(32)
+                .fontSize(12)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.STEPS_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addSteps(500);
+                })
+            }
+            .margin({ top: 4 })
+          }
+          .width('100%')
+          .padding(12)
+          .backgroundColor(AppColors.GRAY_50)
+          .borderRadius(AppSizes.CARD_RADIUS)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
         }
         
+        // 饮水
         GridItem() {
-          IconCard(
-            '饮水',
-            `${this.healthData.waterIntake}ml`,
-            'water',
-            AppColors.WATER_COLOR,
-            AppColors.GRAY_50
-          )
+          Column({ space: 8 }) {
+            Image('water')
+              .width(32)
+              .height(32)
+              .objectFit(ImageFit.Contain)
+              .fillColor(AppColors.WATER_COLOR)
+            
+            Text(`${this.healthData.waterIntake}ml`)
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.GRAY_900)
+            
+            Text('饮水')
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_600)
+            
+            Row({ space: 4 }) {
+              Button('-250')
+                .width(48)
+                .height(32)
+                .fontSize(12)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.WATER_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addWater(-250);
+                })
+              
+              Button('+250')
+                .width(48)
+                .height(32)
+                .fontSize(12)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.WATER_COLOR)
+                .borderRadius(16)
+                .onClick(() => {
+                  this.addWater(250);
+                })
+            }
+            .margin({ top: 4 })
+          }
+          .width('100%')
+          .padding(12)
+          .backgroundColor(AppColors.GRAY_50)
+          .borderRadius(AppSizes.CARD_RADIUS)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
         }
       }
       .columnsTemplate('1fr 1fr')
@@ -355,7 +568,7 @@ struct Index {
       .columnsGap(12)
       .rowsGap(12)
       .width('100%')
-      .height(200)
+      .height(240)
       .padding({ top: 8, bottom: 8 })
     }
   }

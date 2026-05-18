@@ -4,7 +4,9 @@
 import { HealthCard } from '../components/index';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
+import { AuthService } from '../utils/AuthService';
 import router from '@ohos.router';
+
 
 @Entry
 @Component
@@ -12,7 +14,13 @@ struct GoalSetting {
   // 用户数据
   @State user: User = new User();
   
-  aboutToAppear() {
+  async aboutToAppear() {
+    // 检查登录状态
+    const isLoggedIn = await AuthService.getInstance().isLoggedIn();
+    if (!isLoggedIn) {
+      router.replaceUrl({ url: 'pages/Login' });
+      return;
+    }
     // 初始化用户数据
     const initialUser = new User();
     initialUser.name = '张三';
