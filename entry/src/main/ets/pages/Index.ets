@@ -109,6 +109,10 @@ struct Index {
     router.pushUrl({ url: 'pages/Calendar' });
   }
 
+  private goToWeeklyOverview() {
+    router.pushUrl({ url: 'pages/WeeklyOverview' });
+  }
+
   private async loadUser() {
     const currentUser = await AuthService.getInstance().getCurrentUser();
     this.user = currentUser ?? new User();
@@ -847,14 +851,26 @@ struct Index {
             }
             .layoutWeight(1)
 
-            Button('选择日期')
-              .height(36)
-              .fontSize(14)
-              .fontColor(AppColors.WHITE)
-              .backgroundColor(AppColors.PRIMARY)
-              .borderRadius(AppSizes.BUTTON_RADIUS)
-              .padding({ left: 12, right: 12 })
-              .onClick(() => this.goToCalendar())
+            Row({ space: 8 }) {
+              Button('选择日期')
+                .height(36)
+                .fontSize(14)
+                .fontColor(AppColors.WHITE)
+                .backgroundColor(AppColors.PRIMARY)
+                .borderRadius(AppSizes.BUTTON_RADIUS)
+                .padding({ left: 12, right: 12 })
+                .onClick(() => this.goToCalendar())
+
+              Button('一周概览')
+                .height(36)
+                .fontSize(14)
+                .fontColor(AppColors.PRIMARY)
+                .backgroundColor(AppColors.WHITE)
+                .border({ width: 1, color: AppColors.GRAY_200 })
+                .borderRadius(AppSizes.BUTTON_RADIUS)
+                .padding({ left: 12, right: 12 })
+                .onClick(() => this.goToWeeklyOverview())
+            }
           }
           .width('100%')
           .padding({ left: 24, right: 24, bottom: 8 })

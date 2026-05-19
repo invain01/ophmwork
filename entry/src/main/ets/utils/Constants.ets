@@ -88,3 +88,9 @@ export class DefaultValues {
   static readonly DEFAULT_HEART_RATE = 0;
   static readonly DEFAULT_CALORIES = 0;
 }
+
+// 后端接口配置（BASE_URL 为空时仅使用本地数据）
+export class ApiConfig {
+  static readonly BASE_URL = '';
+  static readonly WEEKLY_HEALTH_PATH = '/health/weekly';
+}

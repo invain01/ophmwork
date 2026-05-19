@@ -3,6 +3,7 @@
     "pages/Login",
     "pages/Register",
     "pages/Index",
+    "pages/WeeklyOverview",
     "pages/StatusSetting",
     "pages/GoalSetting",
     "pages/Settings",
