@@ -11,14 +11,14 @@ export class HealthData {
   waterGoal: number = 2000; // 毫升
   
   // 睡眠相关
-  sleepHours: number = 7.5;
+  sleepHours: number = 0;
   sleepGoal: number = 8;
   
   // 心率
-  heartRate: number = 72;
+  heartRate: number = 0;
   
   // 卡路里
-  caloriesBurned: number = 450;
+  caloriesBurned: number = 0;
   calorieGoal: number = 500;
   
   // 更新时间

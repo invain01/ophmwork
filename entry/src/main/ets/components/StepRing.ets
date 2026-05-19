@@ -89,11 +89,12 @@ export struct StepRing {
    */
   get percentage(): number {
     // 防护：确保goalSteps不为0或undefined
-    if (!this.goalSteps || this.goalSteps <= 0) return 0;
+    if (typeof this.goalSteps !== 'number' || !isFinite(this.goalSteps) || this.goalSteps <= 0) return 0;
     // 防护：确保displaySteps是有效数字
-    if (typeof this.displaySteps !== 'number' || isNaN(this.displaySteps)) return 0;
+    if (typeof this.displaySteps !== 'number' || !isFinite(this.displaySteps)) return 0;
     const p = this.displaySteps / this.goalSteps;
-    return p > 1 ? 1 : p;
+    if (!isFinite(p) || isNaN(p)) return 0;
+    return Math.min(Math.max(p, 0), 1);
   }
   
   /**

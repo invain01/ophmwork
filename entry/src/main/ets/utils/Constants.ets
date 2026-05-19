@@ -82,9 +82,9 @@ export class DefaultValues {
   static readonly DEFAULT_SLEEP_GOAL = 8;
   static readonly DEFAULT_CALORIE_GOAL = 500;
   
-  static readonly DEFAULT_STEPS = 6543;
-  static readonly DEFAULT_WATER = 1250;
-  static readonly DEFAULT_SLEEP = 7.5;
-  static readonly DEFAULT_HEART_RATE = 72;
-  static readonly DEFAULT_CALORIES = 450;
+  static readonly DEFAULT_STEPS = 0;
+  static readonly DEFAULT_WATER = 0;
+  static readonly DEFAULT_SLEEP = 0;
+  static readonly DEFAULT_HEART_RATE = 0;
+  static readonly DEFAULT_CALORIES = 0;
 }

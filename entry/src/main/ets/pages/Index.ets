@@ -143,10 +143,17 @@ struct Index {
     initData.waterGoal = DefaultValues.DEFAULT_WATER_GOAL;
     initData.sleepHours = DefaultValues.DEFAULT_SLEEP;
     initData.sleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
-    initData.heartRate = DefaultValues.DEFAULT_HEART_RATE;
-    initData.caloriesBurned = DefaultValues.DEFAULT_CALORIES;
+    initData.heartRate = this.randomInt(65, 120);
+    initData.caloriesBurned = this.randomInt(200, 650);
     initData.calorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
     return initData;
+  }
+
+  private randomInt(min: number, max: number): number {
+    const safeMin = Math.floor(min);
+    const safeMax = Math.floor(max);
+    if (safeMax <= safeMin) return safeMin;
+    return Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
   }
 
   private persistHealthData() {
