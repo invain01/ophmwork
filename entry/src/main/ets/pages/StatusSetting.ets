@@ -1,5 +1,5 @@
 /**
- * 状态设置页面
+ * 用户信息设置页面
  * 编辑用户基础信息并同步到首页
  */
 import { HealthCard } from '../components/index';
@@ -18,7 +18,6 @@ struct StatusSetting {
   @State tempName: string = '';
   @State tempAgeText: string = '';
   @State tempHeightText: string = '';
-  @State tempWeightText: string = '';
 
   @State isSaving: boolean = false;
   @State showSuccess: boolean = false;
@@ -36,7 +35,6 @@ struct StatusSetting {
     this.tempName = this.user.name;
     this.tempAgeText = this.user.age ? String(this.user.age) : '';
     this.tempHeightText = this.user.height ? String(this.user.height) : '';
-    this.tempWeightText = this.user.weight ? String(this.user.weight) : '';
   }
 
   private goBack() {
@@ -63,10 +61,9 @@ struct StatusSetting {
 
     const age = Math.max(0, Math.round(this.normalizeNumber(this.tempAgeText, this.user.age)));
     const height = Math.max(0, Math.round(this.normalizeNumber(this.tempHeightText, this.user.height)));
-    const weight = Math.max(0, Math.round(this.normalizeNumber(this.tempWeightText, this.user.weight)));
 
     const next = new User(this.user);
-    next.updateProfile(name, age, height, weight);
+    next.updateProfile(name, age, height);
     return next;
   }
 
@@ -100,7 +97,6 @@ struct StatusSetting {
     this.tempName = this.user.name;
     this.tempAgeText = this.user.age ? String(this.user.age) : '';
     this.tempHeightText = this.user.height ? String(this.user.height) : '';
-    this.tempWeightText = this.user.weight ? String(this.user.weight) : '';
   }
 
   @Builder
@@ -173,26 +169,6 @@ struct StatusSetting {
             })
         }
 
-        Column({ space: 8 }) {
-          Text('体重 (kg)')
-            .fontSize(14)
-            .fontColor(AppColors.GRAY_700)
-
-          TextInput({
-            placeholder: '请输入体重',
-            text: this.tempWeightText
-          })
-            .type(InputType.Number)
-            .width('100%')
-            .height(44)
-            .padding({ left: 12, right: 12 })
-            .backgroundColor(AppColors.GRAY_50)
-            .borderRadius(AppSizes.BUTTON_RADIUS)
-            .border({ width: 1, color: AppColors.GRAY_200 })
-            .onChange((value: string) => {
-              this.tempWeightText = value;
-            })
-        }
       }
       .width('100%')
     }
@@ -201,7 +177,7 @@ struct StatusSetting {
   build() {
     Column() {
       Row() {
-        Text('状态设置')
+        Text('用户信息设置')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor(AppColors.GRAY_900)

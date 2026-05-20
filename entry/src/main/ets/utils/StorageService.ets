@@ -14,6 +14,7 @@ interface HealthDataJson {
   stepGoal?: number;
   waterIntake?: number;
   waterGoal?: number;
+  weight?: number;
   sleepHours?: number;
   sleepGoal?: number;
   heartRate?: number;
@@ -29,25 +30,10 @@ interface HealthDataFilePayload {
   entries: HealthDataEntryPayload[];
 }
 
-class HealthDataEntry {
-  date: string;
-  data: HealthDataJson;
+// 使用 Map 来代替索引签名，以兼容 ArkTS 规则
 
-  constructor(date: string, data: HealthDataJson) {
-    this.date = date;
-    this.data = data;
-  }
-}
-
-class HealthDataFile {
-  entries: HealthDataEntry[] = [];
-
-  constructor(entries?: HealthDataEntry[]) {
-    if (entries) {
-      this.entries = entries;
-    }
-  }
-}
+// 本地文件改为按日期键的 map 格式：{ "2024-01-01": { ... }, ... }
+// 同时兼容旧的 { entries: [ { date, data }, ... ] } 格式
 
 export class StorageService {
   private static instance: StorageService;
@@ -118,6 +104,7 @@ export class StorageService {
     json.stepGoal = healthData.stepGoal;
     json.waterIntake = healthData.waterIntake;
     json.waterGoal = healthData.waterGoal;
+    json.weight = healthData.weight;
     json.sleepHours = healthData.sleepHours;
     json.sleepGoal = healthData.sleepGoal;
     json.heartRate = healthData.heartRate;
@@ -125,35 +112,53 @@ export class StorageService {
     return json;
   }
 
-  private async readHealthDataFile(): Promise<HealthDataFile> {
+  private async readHealthDataFile(): Promise<Map<string, HealthDataJson>> {
     const filePath = this.getHealthDataFilePath();
     try {
       const content = fs.readTextSync(filePath);
       if (!content) {
-        return new HealthDataFile();
+        return new Map<string, HealthDataJson>();
       }
-      const parsed = JSON.parse(content) as HealthDataFilePayload;
-      if (!parsed || !Array.isArray(parsed.entries)) {
-        return new HealthDataFile();
-      }
-      const entries: HealthDataEntry[] = [];
-      for (const item of parsed.entries) {
-        if (item && typeof item.date === 'string' && item.data) {
-          entries.push(new HealthDataEntry(item.date, item.data));
+      const parsed = JSON.parse(content) as HealthDataFilePayload | Record<string, object>;
+      // 兼容旧格式 { entries: [ { date, data }, ... ] }
+      const maybeEntries = (parsed as HealthDataFilePayload).entries;
+      const result = new Map<string, HealthDataJson>();
+      if (Array.isArray(maybeEntries)) {
+        for (let i = 0; i < maybeEntries.length; i += 1) {
+          const item = maybeEntries[i];
+          if (item && typeof item.date === 'string' && item.data) {
+            result.set(item.date, item.data as HealthDataJson);
+          }
         }
+        return result;
       }
-      return new HealthDataFile(entries);
+
+      // 如果文件本身就是按日期键的对象，则直接读取键值对
+      if (parsed && typeof parsed === 'object') {
+        const parsedMap = parsed as Record<string, object>;
+        const keys = Object.keys(parsedMap);
+        for (let i = 0; i < keys.length; i += 1) {
+          const key = keys[i];
+          const val = parsedMap[key];
+          if (val && typeof val === 'object') {
+            result.set(key, val as HealthDataJson);
+          }
+        }
+        return result;
+      }
+      return result;
     } catch (error) {
-      return new HealthDataFile();
+      return new Map<string, HealthDataJson>();
     }
   }
 
-  private async writeHealthDataFile(file: HealthDataFile): Promise<void> {
+  private async writeHealthDataFile(fileMap: Map<string, HealthDataJson>): Promise<void> {
     const filePath = this.getHealthDataFilePath();
-    const payload: HealthDataFilePayload = {
-      entries: file.entries
-    };
-    const content = JSON.stringify(payload);
+    const obj: Record<string, HealthDataJson> = {};
+    fileMap.forEach((val: HealthDataJson, key: string) => {
+      obj[key] = val;
+    });
+    const content = JSON.stringify(obj);
     const fileHandle = fs.openSync(
       filePath,
       fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC
@@ -165,14 +170,7 @@ export class StorageService {
     }
   }
 
-  private findEntryIndex(entries: HealthDataEntry[], dateKey: string): number {
-    for (let i = 0; i < entries.length; i += 1) {
-      if (entries[i].date === dateKey) {
-        return i;
-      }
-    }
-    return -1;
-  }
+  // 已无需 findEntryIndex — 本地以 map 形式存储并直接按键访问
 
   /**
    * 保存选中的日期
@@ -237,15 +235,9 @@ export class StorageService {
   async saveHealthData(date: Date, healthData: HealthData): Promise<void> {
     try {
       const dateKey = this.getDateKey(date);
-      const file = await this.readHealthDataFile();
-      const index = this.findEntryIndex(file.entries, dateKey);
-      const entry = new HealthDataEntry(dateKey, this.toHealthDataJson(healthData));
-      if (index >= 0) {
-        file.entries[index] = entry;
-      } else {
-        file.entries.push(entry);
-      }
-      await this.writeHealthDataFile(file);
+      const fileMap = await this.readHealthDataFile();
+      fileMap.set(dateKey, this.toHealthDataJson(healthData));
+      await this.writeHealthDataFile(fileMap);
       console.log('Health data saved for date:', dateKey);
     } catch (error) {
       console.error('Failed to save health data:', error);
@@ -258,11 +250,19 @@ export class StorageService {
   async getHealthData(date: Date): Promise<HealthData | null> {
     try {
       const dateKey = this.getDateKey(date);
-      const file = await this.readHealthDataFile();
-      const index = this.findEntryIndex(file.entries, dateKey);
-      if (index >= 0) {
-        const data = file.entries[index].data;
-        return new HealthData(data);
+      const fileMap = await this.readHealthDataFile();
+      const raw = fileMap.get(dateKey);
+      if (raw) {
+        const hd = new HealthData(raw as HealthData);
+        // 规范化本地存储的体重，修复错误放大（例如700 -> 70）
+        if (typeof hd.weight === 'number' && hd.weight >= 300) {
+          let w = hd.weight;
+          while (w >= 300) {
+            w = w / 10;
+          }
+          hd.weight = Math.round(w * 10) / 10;
+        }
+        return hd;
       }
     } catch (error) {
       console.error('Failed to get health data:', error);
@@ -276,8 +276,8 @@ export class StorageService {
   async hasHealthData(date: Date): Promise<boolean> {
     try {
       const dateKey = this.getDateKey(date);
-      const file = await this.readHealthDataFile();
-      return this.findEntryIndex(file.entries, dateKey) >= 0;
+      const fileMap = await this.readHealthDataFile();
+      return fileMap.has(dateKey);
     } catch (error) {
       console.error('Failed to check health data:', error);
     }
@@ -290,15 +290,11 @@ export class StorageService {
   async deleteHealthData(date: Date): Promise<void> {
     try {
       const dateKey = this.getDateKey(date);
-      const file = await this.readHealthDataFile();
-      const nextEntries: HealthDataEntry[] = [];
-      for (const entry of file.entries) {
-        if (entry.date !== dateKey) {
-          nextEntries.push(entry);
-        }
+      const fileMap = await this.readHealthDataFile();
+      if (fileMap.has(dateKey)) {
+        fileMap.delete(dateKey);
+        await this.writeHealthDataFile(fileMap);
       }
-      file.entries = nextEntries;
-      await this.writeHealthDataFile(file);
       console.log('Health data deleted for date:', dateKey);
     } catch (error) {
       console.error('Failed to delete health data:', error);
@@ -311,12 +307,12 @@ export class StorageService {
   async getAllHealthDataDates(): Promise<Date[]> {
     try {
       const dates: Date[] = [];
-      const file = await this.readHealthDataFile();
-      for (const entry of file.entries) {
-        const date = this.parseDateFromKey(entry.date);
-        if (date) {
-          dates.push(date);
-        }
+      const fileMap = await this.readHealthDataFile();
+      const keys = Array.from(fileMap.keys());
+      for (let i = 0; i < keys.length; i += 1) {
+        const key = keys[i];
+        const date = this.parseDateFromKey(key);
+        if (date) dates.push(date);
       }
 
       return dates.sort((a: Date, b: Date): number => a.getTime() - b.getTime());

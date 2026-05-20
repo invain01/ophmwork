@@ -23,6 +23,13 @@ struct Index {
 
   // 当前选中的数据日期
   @State selectedDate: Date = new Date();
+
+  // 体重输入与昨日对比
+  @State weightText: string = '';
+  @State previousWeight: number = 0;
+  @State hasPreviousWeight: boolean = false;
+  @State weightCompareTextFromJson: string = '较昨日 --';
+  @State weightCompareColorFromJson: string = AppColors.GRAY_600;
   
   async aboutToAppear() {
     // 检查登录状态
@@ -98,7 +105,7 @@ struct Index {
     router.pushUrl({ url: 'pages/GoalSetting' });
   }
 
-  private goToStatusSetting() {
+  private goToUserInfoSetting() {
     router.pushUrl({ url: 'pages/StatusSetting' });
   }
 
@@ -116,7 +123,12 @@ struct Index {
 
   private async loadUser() {
     const currentUser = await AuthService.getInstance().getCurrentUser();
-    this.user = currentUser ?? new User();
+    const nextUser = currentUser ?? new User();
+    // 防止历史异常数据导致体重放大（如 700、7100）
+    if (nextUser.weight > 0) {
+      nextUser.weight = this.normalizeWeightValue(nextUser.weight);
+    }
+    this.user = nextUser;
   }
 
   private async loadSelectedDateAndData() {
@@ -126,13 +138,35 @@ struct Index {
     if (!savedDate) {
       await StorageService.getInstance().saveSelectedDateValue(this.selectedDate);
     }
+    // 先加载前一天体重，以便作为缺省值使用
+    await this.loadPreviousWeightForDate(this.selectedDate);
     await this.loadHealthDataForDate(this.selectedDate);
+    await this.loadWeightCompareFromJson(this.selectedDate);
+    this.syncWeightText();
   }
 
   private async loadHealthDataForDate(date: Date) {
     const remote = await HealthApiService.getInstance().fetchDailyHealthData(date, this.user?.id);
     if (remote) {
-      this.healthData = remote;
+      const local = await StorageService.getInstance().getHealthData(date);
+      const next = new HealthData(remote);
+      // 优先使用已有值；若缺失则按顺序使用：本地 -> 前一天 -> 用户配置 -> 每月第一天默认70kg
+      if ((!next.weight || next.weight <= 0) && local && local.weight > 0) {
+        next.weight = local.weight;
+      }
+      if ((!next.weight || next.weight <= 0) && this.previousWeight > 0) {
+        next.weight = this.previousWeight;
+      }
+      if ((!next.weight || next.weight <= 0) && this.user.weight > 0) {
+        next.weight = this.user.weight;
+      }
+      if ((!next.weight || next.weight <= 0) && date.getDate() === 1) {
+        next.weight = 70;
+      }
+      this.healthData = next;
+      if (next.weight !== remote.weight) {
+        this.persistHealthData();
+      }
       return;
     }
 
@@ -147,11 +181,182 @@ struct Index {
     initData.stepGoal = DefaultValues.DEFAULT_STEP_GOAL;
     initData.waterIntake = DefaultValues.DEFAULT_WATER;
     initData.waterGoal = DefaultValues.DEFAULT_WATER_GOAL;
+    // 若有前一天体重则使用前一天；若为当月第一天则默认70kg，否则使用用户配置
+    if (this.previousWeight > 0) {
+      initData.weight = this.previousWeight;
+    } else if (this.selectedDate && this.selectedDate.getDate && this.selectedDate.getDate() === 1) {
+      initData.weight = 70;
+    } else {
+      initData.weight = this.user.weight > 0 ? this.user.weight : 0;
+    }
     initData.sleepHours = DefaultValues.DEFAULT_SLEEP;
     initData.sleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
     initData.heartRate = this.randomInt(65, 120);
     // 卡路里已移除
     return initData;
+  }
+
+  private syncWeightText() {
+    this.weightText = this.weightToInputText(this.healthData.weight);
+  }
+
+  private normalizeWeightValue(weight: number): number {
+    if (typeof weight !== 'number' || !isFinite(weight) || weight <= 0) {
+      return 0;
+    }
+    let normalized = weight;
+    while (normalized >= 300) {
+      normalized = normalized / 10;
+    }
+    return Math.round(normalized * 10) / 10;
+  }
+
+  private weightToInputText(weight: number): string {
+    const normalized = this.normalizeWeightValue(weight);
+    if (normalized <= 0) {
+      return '';
+    }
+    const intValue = Math.round(normalized);
+    if (Math.abs(normalized - intValue) < 0.05) {
+      return String(intValue);
+    }
+    return String(normalized);
+  }
+
+  private async loadPreviousWeightForDate(date: Date) {
+    const previousDate = new Date(date);
+    previousDate.setDate(previousDate.getDate() - 1);
+    previousDate.setHours(0, 0, 0, 0);
+
+    const remote = await HealthApiService.getInstance().fetchDailyHealthData(previousDate, this.user?.id);
+    const local = await StorageService.getInstance().getHealthData(previousDate);
+    let weight = 0;
+    if (remote && remote.weight > 0) {
+      weight = remote.weight;
+    } else if (local && local.weight > 0) {
+      weight = local.weight;
+    }
+
+    this.previousWeight = weight > 0 ? this.normalizeWeightValue(weight) : 0;
+    this.hasPreviousWeight = this.previousWeight > 0;
+  }
+
+  private async loadWeightCompareFromJson(date: Date) {
+    const previousDate = new Date(date);
+    previousDate.setDate(previousDate.getDate() - 1);
+    previousDate.setHours(0, 0, 0, 0);
+
+    const weights = await Promise.all([
+      HealthApiService.getInstance().fetchDailyHealthData(date, this.user?.id),
+      HealthApiService.getInstance().fetchDailyHealthData(previousDate, this.user?.id)
+    ]);
+
+    const current = weights[0];
+    const previous = weights[1];
+
+    const currentWeight = current ? this.normalizeWeightValue(current.weight) : 0;
+    const previousWeight = previous ? this.normalizeWeightValue(previous.weight) : 0;
+
+    if (currentWeight <= 0 || previousWeight <= 0) {
+      this.weightCompareTextFromJson = '较昨日 --';
+      this.weightCompareColorFromJson = AppColors.GRAY_600;
+      return;
+    }
+
+    const diff = Math.round((currentWeight - previousWeight) * 10) / 10;
+    if (!isFinite(diff)) {
+      this.weightCompareTextFromJson = '较昨日 --';
+      this.weightCompareColorFromJson = AppColors.GRAY_600;
+      return;
+    }
+
+    if (Math.abs(diff) < 0.05) {
+      this.weightCompareTextFromJson = '较昨日 0kg';
+      this.weightCompareColorFromJson = AppColors.GRAY_600;
+      return;
+    }
+
+    const prefix = diff > 0 ? '+' : '';
+    this.weightCompareTextFromJson = `较昨日 ${prefix}${diff.toFixed(1)}kg`;
+    this.weightCompareColorFromJson = diff > 0 ? AppColors.ERROR : AppColors.SUCCESS;
+  }
+
+  private formatWeight(value: number): string {
+    if (typeof value !== 'number' || isNaN(value) || value <= 0) {
+      return '--';
+    }
+    return `${value.toFixed(1)}kg`;
+  }
+
+  // 精确差值（基于规范化后的当前与前一天体重），无昨日数据返回 null
+  private get weightDiff(): number | null {
+    const currentWeight = this.normalizeWeightValue(this.healthData.weight);
+    if (currentWeight <= 0) return null;
+    if (!this.hasPreviousWeight || this.previousWeight <= 0) return null;
+    const baseWeight = this.normalizeWeightValue(this.previousWeight);
+    const diff = Math.round((currentWeight - baseWeight) * 10) / 10;
+    if (!isFinite(diff)) return null;
+    return Math.abs(diff) < 0.05 ? 0 : diff;
+  }
+
+  // 用于显示的精简差值，例如 "+0.5kg" 或 "0kg"，无数据返回 "--"
+  private get weightDiffText(): string {
+    const diff = this.weightDiff;
+    if (diff === null) return '--';
+    const prefix = diff > 0 ? '+' : (diff < 0 ? '' : '');
+    return `${prefix}${diff.toFixed(1)}kg`;
+  }
+
+  // 带前缀的比较文本，例如 "较昨日 +0.5kg"，无数据返回 "较昨日 --"
+  private get weightCompareText(): string {
+    const diff = this.weightDiff;
+    if (diff === null) return '较昨日 --';
+    if (Math.abs(diff) < 0.05) return '较昨日 0kg';
+    const prefix = diff > 0 ? '+' : '';
+    return `较昨日 ${prefix}${diff.toFixed(1)}kg`;
+  }
+
+  private get weightChangeColor(): string {
+    if (!this.hasPreviousWeight || !this.healthData.weight || this.healthData.weight <= 0) {
+      return AppColors.GRAY_600;
+    }
+    const current = this.normalizeWeightValue(this.healthData.weight);
+    const prev = this.normalizeWeightValue(this.previousWeight);
+    const diff = current - prev;
+    if (diff > 0) {
+      return AppColors.ERROR;
+    }
+    if (diff < 0) {
+      return AppColors.SUCCESS;
+    }
+    return AppColors.GRAY_600;
+  }
+
+  private updateWeightFromInput(value: string) {
+    this.weightText = value;
+    const parsed = Number(value.trim());
+    if (!isFinite(parsed) || parsed <= 0) {
+      return;
+    }
+
+    const rounded = this.normalizeWeightValue(parsed);
+    const next = new HealthData(this.healthData);
+    next.updateWeight(rounded);
+    this.healthData = next;
+
+    // 输入框仅回显整洁文本，避免 70.0 在数字输入框被解释为 700
+    this.weightText = this.weightToInputText(rounded);
+
+    const nextUser = new User(this.user);
+    nextUser.weight = rounded;
+    this.user = nextUser;
+    void AuthService.getInstance().updateUser(nextUser);
+
+    void this.persistWeightAndHealthData();
+  }
+
+  private async persistWeightAndHealthData() {
+    await this.persistHealthData();
   }
 
   private randomInt(min: number, max: number): number {
@@ -193,6 +398,16 @@ struct Index {
     const newData = new HealthData(this.healthData);
     newData.waterIntake = nextWater;
     this.healthData = newData;
+    this.persistHealthData();
+  }
+
+  /**
+   * 更新体重
+   */
+  updateWeight(weight: number) {
+    const next = new HealthData(this.healthData);
+    next.updateWeight(weight);
+    this.healthData = next;
     this.persistHealthData();
   }
   
@@ -427,6 +642,65 @@ struct Index {
       .padding({ top: 8, bottom: 8 })
     }
   }
+
+  /**
+   * 构建体重输入卡片
+   */
+  @Builder
+  buildWeightCard() {
+    HealthCard({
+      title: '今日体重',
+      cardBackgroundColor: AppColors.WHITE,
+      iconColor: AppColors.PRIMARY
+    }) {
+      Column({ space: 14 }) {
+        Row({ space: 12 }) {
+          Column({ space: 4 }) {
+            Text('当前体重')
+              .fontSize(14)
+              .fontColor(AppColors.GRAY_600)
+
+            Text(this.formatWeight(this.healthData.weight))
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.GRAY_900)
+          }
+          .layoutWeight(1)
+
+          Column({ space: 4 }) {
+            Text(this.weightCompareText)
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.weightChangeColor)
+          }
+          .alignItems(HorizontalAlign.End)
+        }
+
+        TextInput({
+          placeholder: '输入体重 (kg)',
+          text: this.weightText
+        })
+          .type(InputType.Normal)
+          .width('100%')
+          .height(44)
+          .padding({ left: 12, right: 12 })
+          .backgroundColor(AppColors.GRAY_50)
+          .borderRadius(AppSizes.BUTTON_RADIUS)
+          .border({ width: 1, color: AppColors.GRAY_200 })
+          .onChange((value: string) => {
+            this.updateWeightFromInput(value);
+          })
+
+        Text('输入后自动保存，并按前一天体重计算变化值')
+          .fontSize(12)
+          .fontColor(AppColors.GRAY_500)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+      }
+      .width('100%')
+      .padding({ top: 8, bottom: 8 })
+    }
+  }
   
   /**
    * 构建睡眠卡片
@@ -545,8 +819,42 @@ struct Index {
           .alignItems(HorizontalAlign.Center)
         }
         
-        // 卡路里
-        // 卡路里项已移除
+        // 体重
+        GridItem() {
+          Column({ space: 8 }) {
+            Text(this.formatWeight(this.healthData.weight))
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(AppColors.PRIMARY)
+              .textAlign(TextAlign.Center)
+              .width('100%')
+
+            Text('体重')
+              .fontSize(12)
+              .fontColor(AppColors.GRAY_600)
+              .textAlign(TextAlign.Center)
+              .width('100%')
+
+            Text(this.weightCompareTextFromJson)
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.weightCompareColorFromJson)
+              .textAlign(TextAlign.Center)
+              .width('100%')
+
+            Text('较昨日变化量')
+              .fontSize(12)
+              .fontColor(AppColors.GRAY_500)
+              .textAlign(TextAlign.Center)
+              .width('100%')
+          }
+          .width('100%')
+          .padding(12)
+          .backgroundColor(AppColors.GRAY_50)
+          .borderRadius(AppSizes.CARD_RADIUS)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+        }
         
         // 步数
         GridItem() {
@@ -758,7 +1066,7 @@ struct Index {
               .padding({ left: 12, right: 12 })
               .onClick(() => this.goToGoalSetting())
 
-            Button('状态设置')
+            Button('用户信息设置')
               .height(36)
               .fontSize(14)
               .fontColor(AppColors.PRIMARY)
@@ -766,7 +1074,7 @@ struct Index {
               .border({ width: 1, color: AppColors.GRAY_200 })
               .borderRadius(AppSizes.BUTTON_RADIUS)
               .padding({ left: 12, right: 12 })
-              .onClick(() => this.goToStatusSetting())
+              .onClick(() => this.goToUserInfoSetting())
 
             Button('设置')
               .height(36)
@@ -820,6 +1128,18 @@ struct Index {
             duration: 500,
             curve: Curve.EaseInOut,
             delay: 800
+          })
+
+          // 体重卡片
+          Column() {
+            this.buildWeightCard()
+          }
+          .margin({ left: 16, right: 16 })
+          .opacity(this.showWelcome ? 0 : 1)
+          .animation({
+            duration: 500,
+            curve: Curve.EaseInOut,
+            delay: 900
           })
           
           // 睡眠卡片

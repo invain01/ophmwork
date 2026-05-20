@@ -101,6 +101,17 @@ function toNumber(value, fallback) {
   return 0;
 }
 
+function normalizeWeight(value, fallback) {
+  let weight = toNumber(value, fallback);
+  if (!Number.isFinite(weight) || weight <= 0) {
+    return 0;
+  }
+  while (weight >= 300) {
+    weight = weight / 10;
+  }
+  return Math.round(weight * 10) / 10;
+}
+
 function getUserId(req) {
   const userId = req.query.userId || req.body.userId || 'user_001';
   return String(userId);
@@ -121,6 +132,7 @@ function buildRecord(dateKey, payload, existing) {
     stepGoal: toNumber(payload.stepGoal, fallback.stepGoal),
     waterIntake: toNumber(payload.waterIntake, fallback.waterIntake),
     waterGoal: toNumber(payload.waterGoal, fallback.waterGoal),
+    weight: normalizeWeight(payload.weight, fallback.weight),
     sleepHours: toNumber(payload.sleepHours, fallback.sleepHours),
     sleepGoal: toNumber(payload.sleepGoal, fallback.sleepGoal),
     heartRate: toNumber(payload.heartRate, fallback.heartRate),
@@ -143,7 +155,18 @@ app.get('/health/daily', (req, res) => {
   const store = loadStore();
   const userData = store.users[userId] || {};
   const record = userData[dateKey] || null;
-  return res.json({ data: record });
+  if (record) {
+    const fixed = {
+      ...record,
+      weight: normalizeWeight(record.weight, 0)
+    };
+    if (fixed.weight !== record.weight) {
+      userData[dateKey] = fixed;
+      saveStore(store);
+    }
+    return res.json({ data: fixed });
+  }
+  return res.json({ data: null });
 });
 
 app.put('/health/daily', (req, res) => {
@@ -187,10 +210,20 @@ app.get('/health/weekly', (req, res) => {
   while (cursor <= end) {
     const key = formatDate(cursor);
     if (userData[key]) {
-      records.push(userData[key]);
+      const original = userData[key];
+      const fixed = {
+        ...original,
+        weight: normalizeWeight(original.weight, 0)
+      };
+      if (fixed.weight !== original.weight) {
+        userData[key] = fixed;
+      }
+      records.push(fixed);
     }
     cursor.setDate(cursor.getDate() + 1);
   }
+
+  saveStore(store);
 
   return res.json({ data: records });
 });

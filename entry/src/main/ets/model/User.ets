@@ -78,11 +78,13 @@ export class User {
   }
   
   // 更新个人信息
-  updateProfile(name: string, age: number, height: number, weight: number): void {
+  updateProfile(name: string, age: number, height: number, weight?: number): void {
     this.name = name;
     this.age = age;
     this.height = height;
-    this.weight = weight;
+    if (weight !== undefined) {
+      this.weight = weight;
+    }
   }
   
   // 更新健康目标

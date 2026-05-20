@@ -12,6 +12,7 @@ interface DailyHealthRecordPayload {
   stepGoal?: number | string;
   waterIntake?: number | string;
   waterGoal?: number | string;
+  weight?: number | string;
   sleepHours?: number | string;
   sleepGoal?: number | string;
   heartRate?: number | string;
@@ -28,6 +29,7 @@ export class DailyHealthRecord {
   date: string;
   steps: number;
   waterIntake: number;
+  weight: number;
   sleepHours: number;
   heartRate: number;
   
@@ -35,12 +37,14 @@ export class DailyHealthRecord {
     date: string,
     steps: number,
     waterIntake: number,
+    weight: number,
     sleepHours: number,
     heartRate: number
   ) {
     this.date = date;
     this.steps = steps;
     this.waterIntake = waterIntake;
+    this.weight = weight;
     this.sleepHours = sleepHours;
     this.heartRate = heartRate;
   }
@@ -97,6 +101,7 @@ export class HealthApiService {
       stepGoal: healthData.stepGoal,
       waterIntake: healthData.waterIntake,
       waterGoal: healthData.waterGoal,
+      weight: healthData.weight,
       sleepHours: healthData.sleepHours,
       sleepGoal: healthData.sleepGoal,
       heartRate: healthData.heartRate,
@@ -284,11 +289,23 @@ export class HealthApiService {
         normalizedDate,
         this.toNumber(item.steps),
         this.toNumber(item.waterIntake),
+        this.toNumber(item.weight),
         this.toNumber(item.sleepHours),
         this.toNumber(item.heartRate)
       ));
     }
     return normalized;
+  }
+
+  // 规范化后端来的体重值（修复因存储/导入导致的放大问题，例如700应为70）
+  private normalizeWeight(value?: number | string, fallback: number = 0): number {
+    let v = this.toNumber(value, fallback);
+    // 若体重异常大，按10倍缩放回合理范围（例如700 -> 70）
+    while (v >= 300) {
+      v = v / 10;
+    }
+    // 保留一位小数
+    return Math.round(v * 10) / 10;
   }
 
   private toNumber(value?: number | string, fallback: number = 0): number {
@@ -341,6 +358,7 @@ export class HealthApiService {
     data.stepGoal = this.toNumber(payload.stepGoal, data.stepGoal);
     data.waterIntake = this.toNumber(payload.waterIntake, data.waterIntake);
     data.waterGoal = this.toNumber(payload.waterGoal, data.waterGoal);
+    data.weight = this.normalizeWeight(payload.weight, data.weight);
     data.sleepHours = this.toNumber(payload.sleepHours, data.sleepHours);
     data.sleepGoal = this.toNumber(payload.sleepGoal, data.sleepGoal);
     data.heartRate = this.toNumber(payload.heartRate, data.heartRate);

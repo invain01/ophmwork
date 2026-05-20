@@ -9,6 +9,9 @@ export class HealthData {
   // 饮水相关
   waterIntake: number = 0; // 毫升
   waterGoal: number = 2000; // 毫升
+
+  // 体重相关
+  weight: number = 0; // 千克
   
   // 睡眠相关
   sleepHours: number = 0;
@@ -27,6 +30,7 @@ export class HealthData {
       if (data.stepGoal !== undefined) this.stepGoal = data.stepGoal;
       if (data.waterIntake !== undefined) this.waterIntake = data.waterIntake;
       if (data.waterGoal !== undefined) this.waterGoal = data.waterGoal;
+      if (data.weight !== undefined) this.weight = data.weight;
       if (data.sleepHours !== undefined) this.sleepHours = data.sleepHours;
       if (data.sleepGoal !== undefined) this.sleepGoal = data.sleepGoal;
       if (data.heartRate !== undefined) this.heartRate = data.heartRate;
@@ -82,6 +86,11 @@ export class HealthData {
   // 增加饮水量
   addWater(ml: number): void {
     this.waterIntake += ml;
+  }
+
+  // 更新体重
+  updateWeight(weight: number): void {
+    this.weight = weight;
   }
   
   // 更新睡眠时长

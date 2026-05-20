@@ -53,11 +53,13 @@ class WeeklyMetricData {
   steps: number[];
   water: number[];
   heart: number[];
+  weight: number[];
   
-  constructor(steps: number[], water: number[], heart: number[]) {
+  constructor(steps: number[], water: number[], heart: number[], weight: number[]) {
     this.steps = steps;
     this.water = water;
     this.heart = heart;
+    this.weight = weight;
   }
 }
 
@@ -68,6 +70,7 @@ struct WeeklyOverview {
   @State weeklySteps: number[] = [];
   @State weeklyWater: number[] = [];
   @State weeklyHeart: number[] = [];
+  @State weeklyWeight: number[] = [];
   
   @State dateRange: string = '';
 
@@ -97,12 +100,14 @@ struct WeeklyOverview {
       this.weeklySteps = remote.steps;
       this.weeklyWater = remote.water;
       this.weeklyHeart = remote.heart;
+      this.weeklyWeight = remote.weight;
       return;
     }
 
     this.weeklySteps = new Array(7).fill(0);
     this.weeklyWater = new Array(7).fill(0);
     this.weeklyHeart = new Array(7).fill(0);
+    this.weeklyWeight = new Array(7).fill(0);
   }
 
   private async loadRemoteWeeklyData(dates: Date[]): Promise<WeeklyMetricData | null> {
@@ -129,6 +134,7 @@ struct WeeklyOverview {
     const steps: number[] = [];
     const water: number[] = [];
     const heart: number[] = [];
+    const weight: number[] = [];
 
     for (const date of dates) {
       const key = this.formatDateKey(date);
@@ -137,14 +143,16 @@ struct WeeklyOverview {
         steps.push(this.safeNumber(record.steps));
         water.push(this.safeNumber(record.waterIntake));
         heart.push(this.safeNumber(record.heartRate));
+        weight.push(this.safeNumber(record.weight));
       } else {
         steps.push(0);
         water.push(0);
         heart.push(0);
+        weight.push(0);
       }
     }
 
-    return new WeeklyMetricData(steps, water, heart);
+    return new WeeklyMetricData(steps, water, heart, weight);
   }
 
 
@@ -166,8 +174,8 @@ struct WeeklyOverview {
     return this.weeklyHeart.length === 7 ? this.weeklyHeart : new Array(7).fill(0);
   }
 
-  private get caloriesData(): number[] {
-    return [];
+  private get weightData(): number[] {
+    return this.weeklyWeight.length === 7 ? this.weeklyWeight : new Array(7).fill(0);
   }
 
   private async resolveAnchorDate(): Promise<Date> {
@@ -486,9 +494,11 @@ struct WeeklyOverview {
             this.buildMetricCard('心率趋势', AppColors.HEART_COLOR, this.heartData, 'bpm')
           }
           .margin({ left: 16, right: 16 })
-          
-          Column()
-            .margin({ left: 16, right: 16, bottom: 24 })
+
+          Column() {
+            this.buildMetricCard('体重趋势', AppColors.PRIMARY, this.weightData, 'kg')
+          }
+          .margin({ left: 16, right: 16, bottom: 24 })
         }
         .width('100%')
       }
