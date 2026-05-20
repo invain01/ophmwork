@@ -829,22 +829,10 @@ struct Index {
               .textAlign(TextAlign.Center)
               .width('100%')
 
-            Text('体重')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_600)
-              .textAlign(TextAlign.Center)
-              .width('100%')
-
             Text(this.weightCompareTextFromJson)
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
               .fontColor(this.weightCompareColorFromJson)
-              .textAlign(TextAlign.Center)
-              .width('100%')
-
-            Text('较昨日变化量')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_500)
               .textAlign(TextAlign.Center)
               .width('100%')
           }
