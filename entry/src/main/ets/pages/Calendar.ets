@@ -4,6 +4,8 @@
  */
 import router from '@ohos.router';
 import { AppColors, AppSizes } from '../utils/Constants';
+import { AuthService } from '../utils/AuthService';
+import { HealthApiService } from '../utils/HealthApiService';
 import { StorageService } from '../utils/StorageService';
 
 interface CalendarDay {
@@ -42,8 +44,8 @@ struct CalendarPage {
   ];
 
   async aboutToAppear() {
-    await this.refreshHealthDataDates();
     await this.loadSelectedDate();
+    await this.refreshHealthDataDates();
     this.generateCalendar();
   }
 
@@ -51,9 +53,9 @@ struct CalendarPage {
    * 加载已选择的日期
    */
   async loadSelectedDate() {
-    const savedDate = await StorageService.getInstance().getSelectedDate();
+    const savedDate = await StorageService.getInstance().getSelectedDateValue();
     if (savedDate) {
-      this.selectedDate = new Date(savedDate);
+      this.selectedDate = savedDate;
       this.currentYear = this.selectedDate.getFullYear();
       this.currentMonth = this.selectedDate.getMonth();
     }
@@ -63,8 +65,14 @@ struct CalendarPage {
    * 刷新有数据的日期列表
    */
   async refreshHealthDataDates() {
-    const dates = await StorageService.getInstance().getAllHealthDataDates();
-    this.healthDataDateKeys = dates.map((date) => this.formatDateKey(date));
+    const user = await AuthService.getInstance().getCurrentUser();
+    const startDate = new Date(this.currentYear, this.currentMonth, 1);
+    const endDate = new Date(this.currentYear, this.currentMonth + 1, 0);
+    this.healthDataDateKeys = await HealthApiService.getInstance().fetchHealthDataDates(
+      startDate,
+      endDate,
+      user?.id
+    );
   }
 
   /**
@@ -161,7 +169,7 @@ struct CalendarPage {
     this.selectedDate = new Date(day.year, day.month, day.day);
     
     // 保存选中的日期到持久化存储
-    await StorageService.getInstance().saveSelectedDate(this.selectedDate.toISOString());
+    await StorageService.getInstance().saveSelectedDateValue(this.selectedDate);
     
     // 重新生成日历以更新选中状态
     this.generateCalendar();
@@ -177,7 +185,7 @@ struct CalendarPage {
    * 确认选择
    */
   async confirmSelection() {
-    await StorageService.getInstance().saveSelectedDate(this.selectedDate.toISOString());
+    await StorageService.getInstance().saveSelectedDateValue(this.selectedDate);
     router.back({
       url: 'pages/Index',
       params: { selectedDate: this.selectedDate.toISOString() }
@@ -187,37 +195,40 @@ struct CalendarPage {
   /**
    * 切换到上个月
    */
-  prevMonth() {
+  async prevMonth() {
     if (this.currentMonth === 0) {
       this.currentMonth = 11;
       this.currentYear--;
     } else {
       this.currentMonth--;
     }
+    await this.refreshHealthDataDates();
     this.generateCalendar();
   }
 
   /**
    * 切换到下个月
    */
-  nextMonth() {
+  async nextMonth() {
     if (this.currentMonth === 11) {
       this.currentMonth = 0;
       this.currentYear++;
     } else {
       this.currentMonth++;
     }
+    await this.refreshHealthDataDates();
     this.generateCalendar();
   }
 
   /**
    * 返回到今天
    */
-  goToToday() {
+  async goToToday() {
     const today = new Date();
     this.currentYear = today.getFullYear();
     this.currentMonth = today.getMonth();
     this.selectedDate = today;
+    await this.refreshHealthDataDates();
     this.generateCalendar();
   }
 

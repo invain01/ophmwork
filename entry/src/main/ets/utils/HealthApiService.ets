@@ -1,22 +1,28 @@
 /**
  * 后端健康数据服务
- * 仅用于拉取最近一周健康数据
+ * 支持日数据与周数据读写
  */
 import http from '@ohos.net.http';
 import { ApiConfig } from './Constants';
+import { HealthData } from '../model/HealthData';
 
 interface DailyHealthRecordPayload {
   date?: string;
   steps?: number | string;
+  stepGoal?: number | string;
   waterIntake?: number | string;
+  waterGoal?: number | string;
   sleepHours?: number | string;
+  sleepGoal?: number | string;
   heartRate?: number | string;
-  caloriesBurned?: number | string;
+  lastUpdated?: string;
 }
 
-interface WeeklyHealthResponse {
-  data?: DailyHealthRecordPayload[];
+interface DailyHealthUpsertPayload extends DailyHealthRecordPayload {
+  userId?: string;
 }
+
+type JsonPayload = Object | Object[];
 
 export class DailyHealthRecord {
   date: string;
@@ -24,22 +30,19 @@ export class DailyHealthRecord {
   waterIntake: number;
   sleepHours: number;
   heartRate: number;
-  caloriesBurned: number;
-
+  
   constructor(
     date: string,
     steps: number,
     waterIntake: number,
     sleepHours: number,
-    heartRate: number,
-    caloriesBurned: number
+    heartRate: number
   ) {
     this.date = date;
     this.steps = steps;
     this.waterIntake = waterIntake;
     this.sleepHours = sleepHours;
     this.heartRate = heartRate;
-    this.caloriesBurned = caloriesBurned;
   }
 }
 
@@ -55,6 +58,98 @@ export class HealthApiService {
     return HealthApiService.instance;
   }
 
+  public async fetchDailyHealthData(date: Date, userId?: string): Promise<HealthData | null> {
+    const baseUrl = ApiConfig.BASE_URL?.trim();
+    if (!baseUrl) {
+      return null;
+    }
+
+    const dateKey = this.formatDate(date);
+    const queryUser = userId ? `&userId=${encodeURIComponent(userId)}` : '';
+    const url = `${baseUrl}${ApiConfig.HEALTH_DAILY_PATH}?date=${dateKey}${queryUser}`;
+
+    try {
+      const body = await this.requestText(url, http.RequestMethod.GET);
+      const payload = this.parseJson(body);
+      const record = this.extractSingleRecord(payload);
+      if (!record) {
+        return null;
+      }
+      return this.buildHealthData(record, dateKey);
+    } catch (error) {
+      console.error('Failed to fetch daily health data:', error);
+      return null;
+    }
+  }
+
+  public async saveDailyHealthData(date: Date, healthData: HealthData, userId?: string): Promise<boolean> {
+    const baseUrl = ApiConfig.BASE_URL?.trim();
+    if (!baseUrl) {
+      return false;
+    }
+
+    const dateKey = this.formatDate(date);
+    const url = `${baseUrl}${ApiConfig.HEALTH_DAILY_PATH}`;
+    const payload: DailyHealthUpsertPayload = {
+      userId,
+      date: dateKey,
+      steps: healthData.steps,
+      stepGoal: healthData.stepGoal,
+      waterIntake: healthData.waterIntake,
+      waterGoal: healthData.waterGoal,
+      sleepHours: healthData.sleepHours,
+      sleepGoal: healthData.sleepGoal,
+      heartRate: healthData.heartRate,
+      lastUpdated: healthData.lastUpdated
+    };
+
+    try {
+      await this.requestText(url, http.RequestMethod.PUT, payload);
+      return true;
+    } catch (error) {
+      console.error('Failed to save daily health data:', error);
+      return false;
+    }
+  }
+
+  public async fetchHealthDataDates(startDate?: Date, endDate?: Date, userId?: string): Promise<string[]> {
+    const baseUrl = ApiConfig.BASE_URL?.trim();
+    if (!baseUrl) {
+      return [];
+    }
+
+    const params: string[] = [];
+    if (startDate) {
+      params.push(`startDate=${this.formatDate(startDate)}`);
+    }
+    if (endDate) {
+      params.push(`endDate=${this.formatDate(endDate)}`);
+    }
+    if (userId) {
+      params.push(`userId=${encodeURIComponent(userId)}`);
+    }
+
+    const query = params.length ? `?${params.join('&')}` : '';
+    const url = `${baseUrl}${ApiConfig.HEALTH_DATES_PATH}${query}`;
+
+    try {
+      const body = await this.requestText(url, http.RequestMethod.GET);
+      const payload = this.parseJson(body);
+      const rawDates = this.extractDateArray(payload);
+      const normalized: string[] = [];
+      for (const value of rawDates) {
+        const key = this.normalizeDateKey(value);
+        if (key) {
+          normalized.push(key);
+        }
+      }
+      return normalized;
+    } catch (error) {
+      console.error('Failed to fetch health data dates:', error);
+      return [];
+    }
+  }
+
   public async fetchWeeklyHealthData(startDate: Date, endDate: Date, userId?: string): Promise<DailyHealthRecord[]> {
     const baseUrl = ApiConfig.BASE_URL?.trim();
     if (!baseUrl) {
@@ -64,43 +159,54 @@ export class HealthApiService {
     const start = this.formatDate(startDate);
     const end = this.formatDate(endDate);
     const queryUser = userId ? `&userId=${encodeURIComponent(userId)}` : '';
-    const url = `${baseUrl}${ApiConfig.WEEKLY_HEALTH_PATH}?startDate=${start}&endDate=${end}${queryUser}`;
+    const url = `${baseUrl}${ApiConfig.HEALTH_WEEKLY_PATH}?startDate=${start}&endDate=${end}${queryUser}`;
 
-    const request = http.createHttp();
     try {
-      const response = await request.request(url, {
-        method: http.RequestMethod.GET,
-        header: {
-          'Content-Type': 'application/json'
-        },
-        connectTimeout: 60000,
-        readTimeout: 60000,
-        expectDataType: http.HttpDataType.STRING
-      });
-
-      const body = typeof response.result === 'string' ? response.result : '';
+      const body = await this.requestText(url, http.RequestMethod.GET);
       const payload = this.parsePayload(body);
       return this.normalizeRecords(payload);
     } catch (error) {
       console.error('Failed to fetch weekly health data:', error);
       return [];
+    }
+  }
+
+  private async requestText(url: string, method: http.RequestMethod, body?: object): Promise<string> {
+    const request = http.createHttp();
+    try {
+      const response = await request.request(url, {
+        method,
+        header: {
+          'Content-Type': 'application/json'
+        },
+        extraData: body ? JSON.stringify(body) : undefined,
+        connectTimeout: 60000,
+        readTimeout: 60000,
+        expectDataType: http.HttpDataType.STRING
+      });
+
+      return typeof response.result === 'string' ? response.result : '';
     } finally {
       request.destroy();
     }
   }
 
-  private parsePayload(text: string): DailyHealthRecordPayload[] {
-    if (!text) return [];
+  private parseJson(text: string): JsonPayload | null {
+    if (!text) return null;
     try {
-      const parsed = JSON.parse(text) as object;
-      return this.extractRecordArray(parsed);
+      return JSON.parse(text) as JsonPayload;
     } catch (error) {
-      console.error('Failed to parse weekly health data:', error);
-      return [];
+      console.error('Failed to parse health data response:', error);
+      return null;
     }
   }
 
-  private extractRecordArray(payload: object): DailyHealthRecordPayload[] {
+  private parsePayload(text: string): DailyHealthRecordPayload[] {
+    const parsed = this.parseJson(text);
+    return this.extractRecordArray(parsed);
+  }
+
+  private extractRecordArray(payload: JsonPayload | null): DailyHealthRecordPayload[] {
     if (Array.isArray(payload)) {
       return payload as DailyHealthRecordPayload[];
     }
@@ -111,7 +217,54 @@ export class HealthApiService {
     const keys = ['data', 'records', 'list', 'items', 'result'];
     for (const key of keys) {
       const value = container[key];
-      const found = this.extractRecordArray(value);
+      const found = this.extractRecordArray(value as JsonPayload);
+      if (found.length > 0) {
+        return found;
+      }
+    }
+    return [];
+  }
+
+  private extractSingleRecord(payload: JsonPayload | null): DailyHealthRecordPayload | null {
+    if (!payload) {
+      return null;
+    }
+    if (Array.isArray(payload)) {
+      return payload.length > 0 ? (payload[0] as DailyHealthRecordPayload) : null;
+    }
+    if (typeof payload !== 'object') {
+      return null;
+    }
+
+    const container = payload as Record<string, Object>;
+    if (this.looksLikeRecord(container)) {
+      return container as DailyHealthRecordPayload;
+    }
+
+    const keys = ['data', 'record', 'item', 'result'];
+    for (const key of keys) {
+      const value = container[key];
+      const found = this.extractSingleRecord(value as JsonPayload);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  private extractDateArray(payload: JsonPayload | null): string[] {
+    if (Array.isArray(payload)) {
+      return payload.map((item: Object) => String(item));
+    }
+    if (!payload || typeof payload !== 'object') {
+      return [];
+    }
+
+    const container = payload as Record<string, Object>;
+    const keys = ['data', 'dates', 'list', 'items', 'result'];
+    for (const key of keys) {
+      const value = container[key];
+      const found = this.extractDateArray(value as JsonPayload);
       if (found.length > 0) {
         return found;
       }
@@ -132,14 +285,13 @@ export class HealthApiService {
         this.toNumber(item.steps),
         this.toNumber(item.waterIntake),
         this.toNumber(item.sleepHours),
-        this.toNumber(item.heartRate),
-        this.toNumber(item.caloriesBurned)
+        this.toNumber(item.heartRate)
       ));
     }
     return normalized;
   }
 
-  private toNumber(value?: number | string): number {
+  private toNumber(value?: number | string, fallback: number = 0): number {
     if (typeof value === 'number' && isFinite(value)) {
       return value;
     }
@@ -147,7 +299,7 @@ export class HealthApiService {
       const parsed = Number(value);
       return isFinite(parsed) ? parsed : 0;
     }
-    return 0;
+    return fallback;
   }
 
   private normalizeDateKey(value?: string): string | null {
@@ -177,5 +329,22 @@ export class HealthApiService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private looksLikeRecord(payload: Record<string, Object>): boolean {
+    return typeof payload.date === 'string' || typeof payload.steps !== 'undefined';
+  }
+
+  private buildHealthData(payload: DailyHealthRecordPayload, fallbackDate: string): HealthData {
+    const data = new HealthData();
+    data.steps = this.toNumber(payload.steps, data.steps);
+    data.stepGoal = this.toNumber(payload.stepGoal, data.stepGoal);
+    data.waterIntake = this.toNumber(payload.waterIntake, data.waterIntake);
+    data.waterGoal = this.toNumber(payload.waterGoal, data.waterGoal);
+    data.sleepHours = this.toNumber(payload.sleepHours, data.sleepHours);
+    data.sleepGoal = this.toNumber(payload.sleepGoal, data.sleepGoal);
+    data.heartRate = this.toNumber(payload.heartRate, data.heartRate);
+    data.lastUpdated = payload.lastUpdated ?? payload.date ?? fallbackDate;
+    return data;
   }
 }

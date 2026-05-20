@@ -4,11 +4,10 @@
  */
 import router from '@ohos.router';
 import { HealthCard } from '../components/index';
-import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
+import { AppColors, AppSizes } from '../utils/Constants';
 import { AuthService } from '../utils/AuthService';
 import { HealthApiService, DailyHealthRecord } from '../utils/HealthApiService';
 import { StorageService } from '../utils/StorageService';
-import { HealthData } from '../model/HealthData';
 
 class ChartPoint {
   x: number;
@@ -54,13 +53,11 @@ class WeeklyMetricData {
   steps: number[];
   water: number[];
   heart: number[];
-  calories: number[];
-
-  constructor(steps: number[], water: number[], heart: number[], calories: number[]) {
+  
+  constructor(steps: number[], water: number[], heart: number[]) {
     this.steps = steps;
     this.water = water;
     this.heart = heart;
-    this.calories = calories;
   }
 }
 
@@ -71,7 +68,7 @@ struct WeeklyOverview {
   @State weeklySteps: number[] = [];
   @State weeklyWater: number[] = [];
   @State weeklyHeart: number[] = [];
-  @State weeklyCalories: number[] = [];
+  
   @State dateRange: string = '';
 
   private readonly chartWidth: number = 320;
@@ -100,27 +97,12 @@ struct WeeklyOverview {
       this.weeklySteps = remote.steps;
       this.weeklyWater = remote.water;
       this.weeklyHeart = remote.heart;
-      this.weeklyCalories = remote.calories;
       return;
     }
 
-    const steps: number[] = [];
-    const water: number[] = [];
-    const heart: number[] = [];
-    const calories: number[] = [];
-
-    for (const date of dates) {
-      const stored = await StorageService.getInstance().getHealthData(date);
-      steps.push(this.safeNumber(stored?.steps));
-      water.push(this.safeNumber(stored?.waterIntake));
-      heart.push(this.safeNumber(stored?.heartRate));
-      calories.push(this.safeNumber(stored?.caloriesBurned));
-    }
-
-    this.weeklySteps = steps;
-    this.weeklyWater = water;
-    this.weeklyHeart = heart;
-    this.weeklyCalories = calories;
+    this.weeklySteps = new Array(7).fill(0);
+    this.weeklyWater = new Array(7).fill(0);
+    this.weeklyHeart = new Array(7).fill(0);
   }
 
   private async loadRemoteWeeklyData(dates: Date[]): Promise<WeeklyMetricData | null> {
@@ -147,7 +129,6 @@ struct WeeklyOverview {
     const steps: number[] = [];
     const water: number[] = [];
     const heart: number[] = [];
-    const calories: number[] = [];
 
     for (const date of dates) {
       const key = this.formatDateKey(date);
@@ -156,46 +137,16 @@ struct WeeklyOverview {
         steps.push(this.safeNumber(record.steps));
         water.push(this.safeNumber(record.waterIntake));
         heart.push(this.safeNumber(record.heartRate));
-        calories.push(this.safeNumber(record.caloriesBurned));
       } else {
-        const stored = await StorageService.getInstance().getHealthData(date);
-        steps.push(this.safeNumber(stored?.steps));
-        water.push(this.safeNumber(stored?.waterIntake));
-        heart.push(this.safeNumber(stored?.heartRate));
-        calories.push(this.safeNumber(stored?.caloriesBurned));
+        steps.push(0);
+        water.push(0);
+        heart.push(0);
       }
     }
 
-    await this.persistRemoteRecords(recordMap);
-
-    return new WeeklyMetricData(steps, water, heart, calories);
+    return new WeeklyMetricData(steps, water, heart);
   }
 
-  private async persistRemoteRecords(records: Map<string, DailyHealthRecord>): Promise<void> {
-    for (const record of records.values()) {
-      const date = this.parseDateKey(record.date);
-      if (!date) {
-        continue;
-      }
-      const data = this.buildHealthDataFromRecord(record);
-      await StorageService.getInstance().saveHealthData(date, data);
-    }
-  }
-
-  private buildHealthDataFromRecord(record: DailyHealthRecord): HealthData {
-    const data = new HealthData();
-    data.steps = record.steps;
-    data.stepGoal = DefaultValues.DEFAULT_STEP_GOAL;
-    data.waterIntake = record.waterIntake;
-    data.waterGoal = DefaultValues.DEFAULT_WATER_GOAL;
-    data.sleepHours = record.sleepHours;
-    data.sleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
-    data.heartRate = record.heartRate;
-    data.caloriesBurned = record.caloriesBurned;
-    data.calorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
-    data.lastUpdated = record.date;
-    return data;
-  }
 
   private get labels(): string[] {
     return this.weeklyLabels.length === 7
@@ -216,18 +167,17 @@ struct WeeklyOverview {
   }
 
   private get caloriesData(): number[] {
-    return this.weeklyCalories.length === 7 ? this.weeklyCalories : new Array(7).fill(0);
+    return [];
   }
 
   private async resolveAnchorDate(): Promise<Date> {
-    const saved = await StorageService.getInstance().getSelectedDate();
+    const saved = await StorageService.getInstance().getSelectedDateValue();
     if (saved) {
-      const parsed = new Date(saved);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
-      }
+      return saved;
     }
-    return new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
   }
 
   private getStartOfDay(date: Date): Date {
@@ -536,11 +486,9 @@ struct WeeklyOverview {
             this.buildMetricCard('心率趋势', AppColors.HEART_COLOR, this.heartData, 'bpm')
           }
           .margin({ left: 16, right: 16 })
-
-          Column() {
-            this.buildMetricCard('卡路里趋势', AppColors.CALORIES_COLOR, this.caloriesData, 'kcal')
-          }
-          .margin({ left: 16, right: 16, bottom: 24 })
+          
+          Column()
+            .margin({ left: 16, right: 16, bottom: 24 })
         }
         .width('100%')
       }

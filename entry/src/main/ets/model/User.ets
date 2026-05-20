@@ -17,7 +17,7 @@ export class User {
   dailyStepGoal: number = 10000;
   dailyWaterGoal: number = 2000; // 毫升
   dailySleepGoal: number = 8; // 小时
-  dailyCalorieGoal: number = 500; // 千卡
+  
   
   // 设置
   darkMode: boolean = false;
@@ -39,7 +39,7 @@ export class User {
       if (data.dailyStepGoal !== undefined) this.dailyStepGoal = data.dailyStepGoal;
       if (data.dailyWaterGoal !== undefined) this.dailyWaterGoal = data.dailyWaterGoal;
       if (data.dailySleepGoal !== undefined) this.dailySleepGoal = data.dailySleepGoal;
-      if (data.dailyCalorieGoal !== undefined) this.dailyCalorieGoal = data.dailyCalorieGoal;
+      
       if (data.darkMode !== undefined) this.darkMode = data.darkMode;
       if (data.notifications !== undefined) this.notifications = data.notifications;
       if (data.healthReminders !== undefined) this.healthReminders = data.healthReminders;
@@ -86,10 +86,9 @@ export class User {
   }
   
   // 更新健康目标
-  updateGoals(stepGoal: number, waterGoal: number, sleepGoal: number, calorieGoal: number): void {
+  updateGoals(stepGoal: number, waterGoal: number, sleepGoal: number): void {
     this.dailyStepGoal = stepGoal;
     this.dailyWaterGoal = waterGoal;
     this.dailySleepGoal = sleepGoal;
-    this.dailyCalorieGoal = calorieGoal;
   }
 }

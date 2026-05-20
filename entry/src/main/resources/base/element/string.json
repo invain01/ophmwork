@@ -53,10 +53,6 @@
       "value": "心率"
     },
     {
-      "name": "calories",
-      "value": "卡路里"
-    },
-    {
       "name": "today_steps",
       "value": "今日步数"
     },
@@ -176,10 +172,7 @@
       "name": "sleep_goal",
       "value": "睡眠目标"
     },
-    {
-      "name": "calorie_goal",
-      "value": "卡路里目标"
-    },
+    
     {
       "name": "theme_settings",
       "value": "主题设置"

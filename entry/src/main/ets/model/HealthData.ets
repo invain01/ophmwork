@@ -17,9 +17,6 @@ export class HealthData {
   // 心率
   heartRate: number = 0;
   
-  // 卡路里
-  caloriesBurned: number = 0;
-  calorieGoal: number = 500;
   
   // 更新时间
   lastUpdated: string = new Date().toLocaleDateString();
@@ -33,8 +30,7 @@ export class HealthData {
       if (data.sleepHours !== undefined) this.sleepHours = data.sleepHours;
       if (data.sleepGoal !== undefined) this.sleepGoal = data.sleepGoal;
       if (data.heartRate !== undefined) this.heartRate = data.heartRate;
-      if (data.caloriesBurned !== undefined) this.caloriesBurned = data.caloriesBurned;
-      if (data.calorieGoal !== undefined) this.calorieGoal = data.calorieGoal;
+      
       if (data.lastUpdated !== undefined) this.lastUpdated = data.lastUpdated;
     }
   }
@@ -76,16 +72,7 @@ export class HealthData {
   }
   
   // 计算卡路里完成百分比
-  get caloriesPercentage(): number {
-    // 防护：确保calorieGoal不为0或undefined
-    if (!this.calorieGoal || this.calorieGoal <= 0) return 0;
-    // 防护：确保caloriesBurned是有效数字
-    if (typeof this.caloriesBurned !== 'number' || isNaN(this.caloriesBurned)) return 0;
-    const percentage = (this.caloriesBurned / this.calorieGoal) * 100;
-    // 防护：确保计算结果是有效数字
-    if (isNaN(percentage) || !isFinite(percentage)) return 0;
-    return percentage > 100 ? 100 : percentage;
-  }
+  // 卡路里相关已移除
   
   // 增加步数
   addSteps(steps: number): void {
@@ -108,7 +95,5 @@ export class HealthData {
   }
   
   // 更新卡路里
-  updateCalories(calories: number): void {
-    this.caloriesBurned = calories;
-  }
+  // 卡路里方法已移除
 }

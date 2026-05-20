@@ -17,8 +17,6 @@ interface HealthDataJson {
   sleepHours?: number;
   sleepGoal?: number;
   heartRate?: number;
-  caloriesBurned?: number;
-  calorieGoal?: number;
   lastUpdated?: string;
 }
 
@@ -97,10 +95,21 @@ export class StorageService {
     return `${context.filesDir}/${this.HEALTH_DATA_FILE_NAME}`;
   }
 
+  public getFilesDirPath(): string {
+    const context = this.getContext();
+    return context.filesDir;
+  }
+
   private async ensurePreferences(): Promise<void> {
     if (!this.preferences) {
       await this.initialize();
     }
+  }
+
+  private normalizeToStartOfDay(date: Date): Date {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
   }
 
   private toHealthDataJson(healthData: HealthData): HealthDataJson {
@@ -112,8 +121,6 @@ export class StorageService {
     json.sleepHours = healthData.sleepHours;
     json.sleepGoal = healthData.sleepGoal;
     json.heartRate = healthData.heartRate;
-    json.caloriesBurned = healthData.caloriesBurned;
-    json.calorieGoal = healthData.calorieGoal;
     json.lastUpdated = healthData.lastUpdated;
     return json;
   }
@@ -199,6 +206,29 @@ export class StorageService {
       console.error('Failed to get selected date:', error);
     }
     return null;
+  }
+
+  async saveSelectedDateValue(date: Date): Promise<void> {
+    const dateKey = this.getDateKey(this.normalizeToStartOfDay(date));
+    await this.saveSelectedDate(dateKey);
+  }
+
+  async getSelectedDateValue(): Promise<Date | null> {
+    const saved = await this.getSelectedDate();
+    if (!saved) {
+      return null;
+    }
+
+    const keyMatch = saved.match(/^\d{4}-\d{2}-\d{2}$/);
+    if (keyMatch) {
+      return this.parseDateFromKey(saved);
+    }
+
+    const parsed = new Date(saved);
+    if (isNaN(parsed.getTime())) {
+      return null;
+    }
+    return this.normalizeToStartOfDay(parsed);
   }
 
   /**

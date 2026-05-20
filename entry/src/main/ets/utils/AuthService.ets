@@ -81,7 +81,7 @@ export class AuthService {
     user.dailyStepGoal = 10000;
     user.dailyWaterGoal = 2000;
     user.dailySleepGoal = 8;
-    user.dailyCalorieGoal = 500;
+    
 
     // 存储用户数据
     const userData = JSON.stringify(user);

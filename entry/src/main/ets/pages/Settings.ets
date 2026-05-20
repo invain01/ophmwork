@@ -6,6 +6,7 @@ import { HealthCard } from '../components/index';
 import { User } from '../model/User';
 import { AppColors, AppSizes } from '../utils/Constants';
 import { AuthService } from '../utils/AuthService';
+import { StorageService } from '../utils/StorageService';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 
@@ -124,6 +125,19 @@ struct Settings {
   cancelFeedback() {
     this.showFeedbackDialog = false;
     this.feedbackText = '';
+  }
+
+  private async showFilesDirPath() {
+    const filesDir = StorageService.getInstance().getFilesDirPath();
+    try {
+      await promptAction.showDialog({
+        title: '应用沙箱目录',
+        message: filesDir,
+        buttons: [{ text: '确定', color: AppColors.PRIMARY }]
+      });
+    } catch (error) {
+      console.error('显示文件目录失败:', error);
+    }
   }
   
   /**
@@ -332,6 +346,48 @@ struct Settings {
           .onChange((isOn: boolean) => {
             this.toggleHealthReminders();
           })
+        }
+        .width('100%')
+        .padding({ top: 8, bottom: 8 })
+      }
+      .width('100%')
+    }
+  }
+
+  /**
+   * 构建本地存储卡片
+   */
+  @Builder
+  buildStorageCard() {
+    HealthCard({
+      title: '本地存储',
+      cardBackgroundColor: AppColors.WHITE,
+      iconColor: AppColors.PRIMARY
+    }) {
+      Column({ space: 12 }) {
+        Row() {
+          Column({ space: 4 }) {
+            Text('数据存储目录')
+              .fontSize(16)
+              .fontColor(AppColors.GRAY_900)
+
+            Text('查看应用沙箱 filesDir 路径')
+              .fontSize(12)
+              .fontColor(AppColors.GRAY_600)
+          }
+          .layoutWeight(1)
+
+          Button('查看')
+            .height(32)
+            .fontSize(12)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(AppColors.WHITE)
+            .backgroundColor(AppColors.PRIMARY)
+            .borderRadius(AppSizes.BUTTON_RADIUS)
+            .padding({ left: 12, right: 12 })
+            .onClick(() => {
+              this.showFilesDirPath();
+            })
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 })
@@ -668,6 +724,12 @@ struct Settings {
           // 通知设置卡片
           Column() {
             this.buildNotificationCard()
+          }
+          .margin({ left: 16, right: 16 })
+
+          // 本地存储卡片
+          Column() {
+            this.buildStorageCard()
           }
           .margin({ left: 16, right: 16 })
           

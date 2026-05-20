@@ -27,21 +27,19 @@ struct GoalSetting {
     initialUser.dailyStepGoal = DefaultValues.DEFAULT_STEP_GOAL;
     initialUser.dailyWaterGoal = DefaultValues.DEFAULT_WATER_GOAL;
     initialUser.dailySleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
-    initialUser.dailyCalorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
     this.user = initialUser;
     
     // 初始化临时值
     this.tempStepGoal = this.user.dailyStepGoal;
     this.tempWaterGoal = this.user.dailyWaterGoal;
     this.tempSleepGoal = this.user.dailySleepGoal;
-    this.tempCalorieGoal = this.user.dailyCalorieGoal;
   }
   
   // 临时目标值
   @State tempStepGoal: number = DefaultValues.DEFAULT_STEP_GOAL;
   @State tempWaterGoal: number = DefaultValues.DEFAULT_WATER_GOAL;
   @State tempSleepGoal: number = DefaultValues.DEFAULT_SLEEP_GOAL;
-  @State tempCalorieGoal: number = DefaultValues.DEFAULT_CALORIE_GOAL;
+  
   
   // 保存状态
   @State isSaving: boolean = false;
@@ -65,8 +63,7 @@ struct GoalSetting {
       next.updateGoals(
         this.tempStepGoal,
         this.tempWaterGoal,
-        this.tempSleepGoal,
-        this.tempCalorieGoal
+        this.tempSleepGoal
       );
       this.user = next;
       
@@ -87,7 +84,6 @@ struct GoalSetting {
     this.tempStepGoal = DefaultValues.DEFAULT_STEP_GOAL;
     this.tempWaterGoal = DefaultValues.DEFAULT_WATER_GOAL;
     this.tempSleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
-    this.tempCalorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
   }
   
   /**
@@ -321,78 +317,7 @@ struct GoalSetting {
   /**
    * 构建卡路里目标设置
    */
-  @Builder
-  buildCalorieGoalSetting() {
-    HealthCard({
-      title: '每日卡路里目标',
-      cardBackgroundColor: AppColors.WHITE,
-      iconColor: AppColors.CALORIES_COLOR
-    }) {
-      Column({ space: 16 }) {
-        // 当前值显示
-        Row() {
-          Text('当前目标: ')
-            .fontSize(14)
-            .fontColor(AppColors.GRAY_600)
-          
-          Text(`${this.user.dailyCalorieGoal} 千卡`)
-            .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-            .fontColor(AppColors.CALORIES_COLOR)
-        }
-        .width('100%')
-        
-        // 滑块设置
-        Column({ space: 8 }) {
-          Row() {
-            Text('200千卡')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_500)
-            
-            Text('1000千卡')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_500)
-              .layoutWeight(1)
-              .textAlign(TextAlign.End)
-          }
-          .width('100%')
-          
-          Slider({
-            value: this.tempCalorieGoal,
-            min: 200,
-            max: 1000,
-            step: 50,
-            style: SliderStyle.OutSet
-          })
-          .width('100%')
-          .blockColor(AppColors.CALORIES_COLOR)
-          .trackColor(AppColors.GRAY_300)
-          .selectedColor(AppColors.CALORIES_COLOR)
-          .showSteps(true)
-          .onChange((value: number) => {
-            this.tempCalorieGoal = Math.round(value / 50) * 50;
-          })
-          
-          // 当前选择的值
-          Row() {
-            Text('设置: ')
-              .fontSize(14)
-              .fontColor(AppColors.GRAY_600)
-            
-            Text(`${this.tempCalorieGoal} 千卡`)
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(AppColors.CALORIES_COLOR)
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-          .margin({ top: 8 })
-        }
-      }
-      .width('100%')
-      .padding({ top: 12, bottom: 12 })
-    }
-  }
+  
   
   /**
    * 构建操作按钮
@@ -524,17 +449,9 @@ struct GoalSetting {
           }
           .margin({ left: 16, right: 16 })
           
-          // 卡路里目标设置
-          Column() {
-            this.buildCalorieGoalSetting()
-          }
-          .margin({ left: 16, right: 16 })
           
-          // 操作按钮
-          Column() {
-            this.buildActionButtons()
-          }
-          .margin({ left: 16, right: 16, bottom: 24 })
+          
+          
         }
         .width('100%')
       }

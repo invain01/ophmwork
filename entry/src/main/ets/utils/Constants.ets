@@ -37,7 +37,7 @@ export class AppColors {
   static readonly WATER_COLOR = '#2196F3';
   static readonly SLEEP_COLOR = '#9C27B0';
   static readonly HEART_COLOR = '#FF6B6B';
-  static readonly CALORIES_COLOR = '#FF9800';
+  
   
   // 渐变背景
   static readonly GRADIENT_START = '#667eea';
@@ -80,17 +80,18 @@ export class DefaultValues {
   static readonly DEFAULT_STEP_GOAL = 10000;
   static readonly DEFAULT_WATER_GOAL = 2000;
   static readonly DEFAULT_SLEEP_GOAL = 8;
-  static readonly DEFAULT_CALORIE_GOAL = 500;
+  
   
   static readonly DEFAULT_STEPS = 0;
   static readonly DEFAULT_WATER = 0;
   static readonly DEFAULT_SLEEP = 0;
   static readonly DEFAULT_HEART_RATE = 0;
-  static readonly DEFAULT_CALORIES = 0;
 }
 
 // 后端接口配置（BASE_URL 为空时仅使用本地数据）
 export class ApiConfig {
-  static readonly BASE_URL = '';
-  static readonly WEEKLY_HEALTH_PATH = '/health/weekly';
+  static readonly BASE_URL = 'http://127.0.0.1:3000';
+  static readonly HEALTH_DAILY_PATH = '/health/daily';
+  static readonly HEALTH_WEEKLY_PATH = '/health/weekly';
+  static readonly HEALTH_DATES_PATH = '/health/dates';
 }

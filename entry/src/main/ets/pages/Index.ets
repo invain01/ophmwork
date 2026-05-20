@@ -7,6 +7,7 @@ import { HealthData } from '../model/HealthData';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
 import { AuthService } from '../utils/AuthService';
+import { HealthApiService } from '../utils/HealthApiService';
 import { StorageService } from '../utils/StorageService';
 import router from '@ohos.router';
 
@@ -119,24 +120,25 @@ struct Index {
   }
 
   private async loadSelectedDateAndData() {
-    const savedDate = await StorageService.getInstance().getSelectedDate();
-    this.selectedDate = savedDate ? new Date(savedDate) : new Date();
+    const savedDate = await StorageService.getInstance().getSelectedDateValue();
+    this.selectedDate = savedDate ?? new Date();
+    this.selectedDate.setHours(0, 0, 0, 0);
     if (!savedDate) {
-      await StorageService.getInstance().saveSelectedDate(this.selectedDate.toISOString());
+      await StorageService.getInstance().saveSelectedDateValue(this.selectedDate);
     }
     await this.loadHealthDataForDate(this.selectedDate);
   }
 
   private async loadHealthDataForDate(date: Date) {
-    const stored = await StorageService.getInstance().getHealthData(date);
-    if (stored) {
-      this.healthData = new HealthData(stored);
+    const remote = await HealthApiService.getInstance().fetchDailyHealthData(date, this.user?.id);
+    if (remote) {
+      this.healthData = remote;
       return;
     }
 
     const initData = this.buildDefaultHealthData();
     this.healthData = initData;
-    await StorageService.getInstance().saveHealthData(date, initData);
+    await HealthApiService.getInstance().saveDailyHealthData(date, initData, this.user?.id);
   }
 
   private buildDefaultHealthData(): HealthData {
@@ -148,8 +150,7 @@ struct Index {
     initData.sleepHours = DefaultValues.DEFAULT_SLEEP;
     initData.sleepGoal = DefaultValues.DEFAULT_SLEEP_GOAL;
     initData.heartRate = this.randomInt(65, 120);
-    initData.caloriesBurned = this.randomInt(200, 650);
-    initData.calorieGoal = DefaultValues.DEFAULT_CALORIE_GOAL;
+    // 卡路里已移除
     return initData;
   }
 
@@ -161,7 +162,7 @@ struct Index {
   }
 
   private persistHealthData() {
-    StorageService.getInstance().saveHealthData(this.selectedDate, this.healthData);
+    void HealthApiService.getInstance().saveDailyHealthData(this.selectedDate, this.healthData, this.user?.id);
   }
 
   private formatSelectedDate(): string {
@@ -226,18 +227,7 @@ struct Index {
   /**
    * 增加卡路里（可为负数）
    */
-  addCalories(calories: number) {
-    const next = new HealthData(this.healthData);
-    const newCalories = this.healthData.caloriesBurned + calories;
-    // 确保卡路里不为负数
-    if (newCalories < 0) {
-      next.updateCalories(0);
-    } else {
-      next.updateCalories(newCalories);
-    }
-    this.healthData = next;
-    this.persistHealthData();
-  }
+  // 卡路里交互已移除
   
   /**
    * 构建用户信息卡片
@@ -556,55 +546,7 @@ struct Index {
         }
         
         // 卡路里
-        GridItem() {
-          Column({ space: 8 }) {
-            Image('calories')
-              .width(32)
-              .height(32)
-              .objectFit(ImageFit.Contain)
-              .fillColor(AppColors.CALORIES_COLOR)
-            
-            Text(`${this.healthData.caloriesBurned}`)
-              .fontSize(20)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(AppColors.GRAY_900)
-            
-            Text('卡路里')
-              .fontSize(14)
-              .fontColor(AppColors.GRAY_600)
-            
-            Row({ space: 4 }) {
-              Button('-10')
-                .width(48)
-                .height(32)
-                .fontSize(12)
-                .fontColor(AppColors.WHITE)
-                .backgroundColor(AppColors.CALORIES_COLOR)
-                .borderRadius(16)
-                .onClick(() => {
-                  this.addCalories(-10);
-                })
-              
-              Button('+10')
-                .width(48)
-                .height(32)
-                .fontSize(12)
-                .fontColor(AppColors.WHITE)
-                .backgroundColor(AppColors.CALORIES_COLOR)
-                .borderRadius(16)
-                .onClick(() => {
-                  this.addCalories(10);
-                })
-            }
-            .margin({ top: 4 })
-          }
-          .width('100%')
-          .padding(12)
-          .backgroundColor(AppColors.GRAY_50)
-          .borderRadius(AppSizes.CARD_RADIUS)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-        }
+        // 卡路里项已移除
         
         // 步数
         GridItem() {
@@ -718,84 +660,7 @@ struct Index {
     }
   }
   
-  /**
-   * 构建睡眠柱状图
-   */
-  @Builder
-  buildSleepChart() {
-    
-    HealthCard({
-      title: '本周睡眠记录',
-      cardBackgroundColor: AppColors.WHITE,
-      iconColor: AppColors.SLEEP_COLOR
-    }) {
-      Column({ space: 16 }) {
-        // 柱状图
-        Row({ space: 8 }) {
-          ForEach(this.sleepData, (value: number, index: number) => {
-            Column({ space: 4 }) {
-              // 柱子
-              Column()
-                .width(24)
-                .height(80 * (value / this.maxSleep))
-                .backgroundColor(AppColors.SLEEP_COLOR)
-                .borderRadius({ topLeft: 4, topRight: 4 })
-                .opacity(0.8)
-              
-              // 星期标签
-              Text(this.days[index])
-                .fontSize(12)
-                .fontColor(AppColors.GRAY_600)
-              
-              // 数值标签
-              Text(value.toFixed(1))
-                .fontSize(10)
-                .fontColor(AppColors.GRAY_500)
-            }
-            .height(120)
-            .justifyContent(FlexAlign.End)
-            .alignItems(HorizontalAlign.Center)
-          })
-        }
-        .width('100%')
-        .height(120)
-        .justifyContent(FlexAlign.SpaceBetween)
-        .alignItems(VerticalAlign.Bottom)
-        
-        // 图例
-        Row({ space: 16 }) {
-          Row({ space: 4 }) {
-            Column()
-              .width(12)
-              .height(12)
-              .backgroundColor(AppColors.SLEEP_COLOR)
-              .borderRadius(2)
-            
-            Text('睡眠时长')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_600)
-          }
-          
-          Row({ space: 4 }) {
-            Column()
-              .width(12)
-              .height(12)
-              .backgroundColor(AppColors.GRAY_300)
-              .borderRadius(2)
-            
-            Text('目标: 8小时')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_600)
-          }
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .padding({ top: 8 })
-      }
-      .width('100%')
-      .padding({ top: 8, bottom: 8 })
-    }
-  }
+  // 本周睡眠柱状图模块已移除
   
   build() {
     Stack() {
@@ -979,18 +844,6 @@ struct Index {
             duration: 500,
             curve: Curve.EaseInOut,
             delay: 1200
-          })
-          
-          // 睡眠柱状图
-          Column() {
-            this.buildSleepChart()
-          }
-          .margin({ left: 16, right: 16, bottom: 24 })
-          .opacity(this.showWelcome ? 0 : 1)
-          .animation({
-            duration: 500,
-            curve: Curve.EaseInOut,
-            delay: 1400
           })
         }
         .width('100%')
