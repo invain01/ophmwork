@@ -12,6 +12,7 @@ export class User {
   height: number = 175; // 厘米
   weight: number = 70; // 千克
   gender: 'male' | 'female' = 'male';
+  loginCount: number = 0;
   
   // 健康目标
   dailyStepGoal: number = 10000;
@@ -36,6 +37,14 @@ export class User {
       if (data.height !== undefined) this.height = data.height;
       if (data.weight !== undefined) this.weight = data.weight;
       if (data.gender !== undefined) this.gender = data.gender;
+      if (data.loginCount !== undefined) {
+        if (typeof data.loginCount === 'number') {
+          this.loginCount = data.loginCount;
+        } else if (typeof data.loginCount === 'string') {
+          const parsedLoginCount = Number(data.loginCount);
+          this.loginCount = isNaN(parsedLoginCount) ? 0 : parsedLoginCount;
+        }
+      }
       if (data.dailyStepGoal !== undefined) this.dailyStepGoal = data.dailyStepGoal;
       if (data.dailyWaterGoal !== undefined) this.dailyWaterGoal = data.dailyWaterGoal;
       if (data.dailySleepGoal !== undefined) this.dailySleepGoal = data.dailySleepGoal;

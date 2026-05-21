@@ -117,9 +117,10 @@ struct Index {
     router.pushUrl({ url: 'pages/Calendar' });
   }
 
-  private goToWeeklyOverview() {
-    router.pushUrl({ url: 'pages/WeeklyOverview' });
+  private goToWeekOverview() {
+    router.pushUrl({ url: 'pages/WeekOverview' });
   }
+
 
   private async loadUser() {
     const currentUser = await AuthService.getInstance().getCurrentUser();
@@ -1021,16 +1022,6 @@ struct Index {
                 .borderRadius(AppSizes.BUTTON_RADIUS)
                 .padding({ left: 12, right: 12 })
                 .onClick(() => this.goToCalendar())
-
-              Button('一周概览')
-                .height(36)
-                .fontSize(14)
-                .fontColor(AppColors.PRIMARY)
-                .backgroundColor(AppColors.WHITE)
-                .border({ width: 1, color: AppColors.GRAY_200 })
-                .borderRadius(AppSizes.BUTTON_RADIUS)
-                .padding({ left: 12, right: 12 })
-                .onClick(() => this.goToWeeklyOverview())
             }
           }
           .width('100%')
@@ -1080,6 +1071,26 @@ struct Index {
             duration: 500,
             curve: Curve.EaseInOut,
             delay: 300
+          })
+
+          Row() {
+            Button('一周概览')
+              .height(40)
+              .fontSize(15)
+              .fontColor(AppColors.WHITE)
+              .backgroundColor(AppColors.PRIMARY)
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 20, right: 20 })
+              .onClick(() => this.goToWeekOverview())
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, bottom: 8 })
+          .justifyContent(FlexAlign.Center)
+          .opacity(this.showWelcome ? 0 : 1)
+          .animation({
+            duration: 500,
+            curve: Curve.EaseInOut,
+            delay: 350
           })
           
           // 用户信息卡片

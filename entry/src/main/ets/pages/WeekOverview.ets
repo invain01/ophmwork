@@ -1,0 +1,487 @@
+/**
+ * 一周数据概览页
+ * 展示最近 7 天的饮水、步数、心率和体重折线图
+ */
+import { HealthCard } from '../components/index';
+import { User } from '../model/User';
+import { AppColors, AppSizes } from '../utils/Constants';
+import { AuthService } from '../utils/AuthService';
+import { DailyHealthRecord, HealthApiService } from '../utils/HealthApiService';
+import { StorageService } from '../utils/StorageService';
+import router from '@ohos.router';
+
+class ChartPoint {
+  x: number;
+  y: number;
+  isLast: boolean;
+
+  constructor(x: number, y: number, isLast: boolean = false) {
+    this.x = x;
+    this.y = y;
+    this.isLast = isLast;
+  }
+}
+
+class AxisTick {
+  value: number;
+  y: number;
+
+  constructor(value: number, y: number) {
+    this.value = value;
+    this.y = y;
+  }
+}
+
+class WeekAxisLabel {
+  dateLabel: string;
+  weekdayLabel: string;
+  isSelected: boolean;
+
+  constructor(dateLabel: string, weekdayLabel: string, isSelected: boolean) {
+    this.dateLabel = dateLabel;
+    this.weekdayLabel = weekdayLabel;
+    this.isSelected = isSelected;
+  }
+}
+
+class MetricScale {
+  topValue: number;
+  step: number;
+  ticks: AxisTick[];
+
+  constructor(topValue: number, step: number, ticks: AxisTick[]) {
+    this.topValue = topValue;
+    this.step = step;
+    this.ticks = ticks;
+  }
+}
+
+@Entry
+@Component
+struct WeekOverview {
+  @State user: User = new User();
+  @State selectedDate: Date = new Date();
+  @State loading: boolean = true;
+  @State weekLabels: WeekAxisLabel[] = [];
+  @State waterSeries: number[] = [];
+  @State stepSeries: number[] = [];
+  @State heartRateSeries: number[] = [];
+  @State weightSeries: number[] = [];
+
+  private readonly chartWidth: number = 268;
+  private readonly chartHeight: number = 160;
+  private readonly chartPadding: number = 14;
+  private readonly axisLabelWidth: number = 64;
+
+  async aboutToAppear() {
+    const isLoggedIn = await AuthService.getInstance().isLoggedIn();
+    if (!isLoggedIn) {
+      router.replaceUrl({ url: 'pages/Login' });
+      return;
+    }
+
+    await this.loadPageData();
+  }
+
+  async onPageShow() {
+    await this.loadPageData();
+  }
+
+  private async loadPageData() {
+    this.loading = true;
+    await this.loadUser();
+
+    const savedDate = await StorageService.getInstance().getSelectedDateValue();
+    const anchorDate = savedDate ?? new Date();
+    anchorDate.setHours(0, 0, 0, 0);
+    if (!savedDate) {
+      await StorageService.getInstance().saveSelectedDateValue(anchorDate);
+    }
+
+    this.selectedDate = anchorDate;
+    await this.loadWeekSeries(anchorDate);
+    this.loading = false;
+  }
+
+  private async loadUser() {
+    const currentUser = await AuthService.getInstance().getCurrentUser();
+    this.user = currentUser ?? new User();
+  }
+
+  private async loadWeekSeries(anchorDate: Date) {
+    const startDate = this.getWeekStart(anchorDate);
+    const endDate = new Date(anchorDate);
+    endDate.setHours(0, 0, 0, 0);
+
+    const remoteRecords = await HealthApiService.getInstance().fetchWeeklyHealthData(startDate, endDate, this.user?.id);
+    const recordMap = new Map<string, DailyHealthRecord>();
+    for (let i = 0; i < remoteRecords.length; i += 1) {
+      const record = remoteRecords[i];
+      recordMap.set(record.date, record);
+    }
+
+    const labels: WeekAxisLabel[] = [];
+    const water: number[] = [];
+    const steps: number[] = [];
+    const heartRates: number[] = [];
+    const weights: number[] = [];
+
+    for (let i = 0; i < 7; i += 1) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      currentDate.setHours(0, 0, 0, 0);
+      const dateKey = this.getDateKey(currentDate);
+      const record = recordMap.get(dateKey);
+      labels.push(new WeekAxisLabel(
+        this.formatCompactDate(currentDate),
+        this.formatWeekday(currentDate),
+        i === 6
+      ));
+      water.push(this.toSafeNumber(record?.waterIntake));
+      steps.push(this.toSafeNumber(record?.steps));
+      heartRates.push(this.toSafeNumber(record?.heartRate));
+      weights.push(this.normalizeWeightValue(this.toSafeNumber(record?.weight)));
+    }
+
+    this.weekLabels = labels;
+    this.waterSeries = water;
+    this.stepSeries = steps;
+    this.heartRateSeries = heartRates;
+    this.weightSeries = weights;
+  }
+
+  private toSafeNumber(value?: number): number {
+    return typeof value === 'number' && isFinite(value) ? value : 0;
+  }
+
+  private normalizeWeightValue(weight?: number): number {
+    if (typeof weight !== 'number' || !isFinite(weight) || weight <= 0) {
+      return 0;
+    }
+    let normalized = weight;
+    while (normalized >= 300) {
+      normalized = normalized / 10;
+    }
+    return Math.round(normalized * 10) / 10;
+  }
+
+  private getWeekStart(date: Date): Date {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 6);
+    return start;
+  }
+
+  private getDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private formatSelectedDate(): string {
+    return this.formatLongDate(this.selectedDate);
+  }
+
+  private formatLongDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${year}年${month}月${day}日`;
+  }
+
+  private formatCompactDate(date: Date): string {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${month}/${day}`;
+  }
+
+  private formatWeekday(date: Date): string {
+    const labels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return labels[date.getDay()];
+  }
+
+  private formatMetricValue(value: number, unit: string, precision: number): string {
+    const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
+    if (precision <= 0) {
+      return `${Math.round(safeValue)}${unit}`;
+    }
+    return `${safeValue.toFixed(precision)}${unit}`;
+  }
+
+  private formatMetricStep(step: number, unit: string, precision: number): string {
+    return this.formatMetricValue(step, unit, precision);
+  }
+
+  private buildMetricScale(values: number[]): MetricScale {
+    const maxValue = this.getMaxValue(values);
+    const tickCount = 5;
+    const rawStep = maxValue > 0 ? maxValue / (tickCount - 1) : 1;
+    const step = this.niceStep(rawStep);
+    const topValue = step * (tickCount - 1);
+    const ticks: AxisTick[] = [];
+    for (let i = 0; i < tickCount; i += 1) {
+      const value = topValue - step * i;
+      const y = this.chartPadding + ((this.chartHeight - this.chartPadding * 2) / (tickCount - 1)) * i;
+      ticks.push(new AxisTick(value, y));
+    }
+    return new MetricScale(topValue, step, ticks);
+  }
+
+  private getMaxValue(values: number[]): number {
+    let maxValue = 0;
+    for (let i = 0; i < values.length; i += 1) {
+      const value = values[i];
+      if (typeof value === 'number' && isFinite(value) && value > maxValue) {
+        maxValue = value;
+      }
+    }
+    return maxValue;
+  }
+
+  private niceStep(value: number): number {
+    if (typeof value !== 'number' || !isFinite(value) || value <= 0) {
+      return 1;
+    }
+    const exponent = Math.floor(Math.log10(value));
+    const fraction = value / Math.pow(10, exponent);
+    let niceFraction = 1;
+    if (fraction <= 1) {
+      niceFraction = 1;
+    } else if (fraction <= 2) {
+      niceFraction = 2;
+    } else if (fraction <= 2.5) {
+      niceFraction = 2.5;
+    } else if (fraction <= 5) {
+      niceFraction = 5;
+    } else {
+      niceFraction = 10;
+    }
+    return niceFraction * Math.pow(10, exponent);
+  }
+
+  private buildLinePoints(values: number[], scale: MetricScale): ChartPoint[] {
+    const safeWidth = Math.max(this.chartWidth, this.chartPadding * 2 + 1);
+    const safeHeight = Math.max(this.chartHeight, this.chartPadding * 2 + 1);
+    const usableWidth = safeWidth - this.chartPadding * 2;
+    const usableHeight = safeHeight - this.chartPadding * 2;
+    const gap = values.length > 1 ? usableWidth / (values.length - 1) : 0;
+    return values.map((value: number, index: number) => {
+      const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
+      const ratio = scale.topValue > 0 ? Math.min(Math.max(safeValue / scale.topValue, 0), 1) : 0;
+      const x = this.chartPadding + gap * index;
+      const y = safeHeight - this.chartPadding - ratio * usableHeight;
+      return new ChartPoint(x, y, index === values.length - 1);
+    });
+  }
+
+  private buildLinePath(points: ChartPoint[]): string {
+    if (points.length === 0) {
+      return '';
+    }
+    return points.map((point: ChartPoint, index: number) => {
+      const command = index === 0 ? 'M' : 'L';
+      return `${command} ${point.x} ${point.y}`;
+    }).join(' ');
+  }
+
+  @Builder
+  buildChartTitle(title: string, step: number, unit: string, precision: number) {
+    Row({ space: 8 }) {
+      Text(title)
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(AppColors.GRAY_900)
+        .layoutWeight(1)
+
+      Text(`每格 ${this.formatMetricStep(step, unit, precision)}`)
+        .fontSize(12)
+        .fontColor(AppColors.GRAY_500)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  buildMetricChart(title: string, values: number[], unit: string, color: string, precision: number) {
+    HealthCard({
+      title,
+      cardBackgroundColor: AppColors.WHITE,
+      iconColor: color
+    }) {
+      Column({ space: 12 }) {
+        this.buildChartTitle(title, this.buildMetricScale(values).step, unit, precision)
+
+        Row({ space: 8 }) {
+          Column({ space: 0 }) {
+            ForEach(this.buildMetricScale(values).ticks, (tick: AxisTick) => {
+              Text(this.formatMetricValue(tick.value, unit, precision))
+                .fontSize(10)
+                .fontColor(AppColors.GRAY_500)
+                .textAlign(TextAlign.RIGHT)
+            })
+          }
+          .width(this.axisLabelWidth)
+          .height(this.chartHeight)
+          .justifyContent(FlexAlign.SpaceBetween)
+          .alignItems(HorizontalAlign.End)
+
+          Stack() {
+            ForEach(this.buildMetricScale(values).ticks, (tick: AxisTick) => {
+              Row()
+                .width('100%')
+                .height(1)
+                .backgroundColor(AppColors.GRAY_200)
+                .position({ x: 0, y: tick.y })
+            })
+
+            if (this.buildLinePoints(values, this.buildMetricScale(values)).length > 1) {
+              Shape() {
+                Path()
+                  .commands(this.buildLinePath(this.buildLinePoints(values, this.buildMetricScale(values))))
+                  .stroke(color)
+                  .strokeWidth(2)
+                  .fill(Color.Transparent)
+              }
+            }
+
+            ForEach(this.buildLinePoints(values, this.buildMetricScale(values)), (point: ChartPoint) => {
+              Circle({ width: point.isLast ? 8 : 6, height: point.isLast ? 8 : 6 })
+                .fill(color)
+                .position({ x: point.x - (point.isLast ? 4 : 3), y: point.y - (point.isLast ? 4 : 3) })
+            })
+          }
+          .width(this.chartWidth)
+          .height(this.chartHeight)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+
+        Row() {
+          Column()
+            .width(this.axisLabelWidth)
+
+          Row({ space: 0 }) {
+            ForEach(this.weekLabels, (label: WeekAxisLabel) => {
+              Column({ space: 2 }) {
+                Text(label.dateLabel)
+                  .fontSize(11)
+                  .fontColor(label.isSelected ? AppColors.PRIMARY_DARK : AppColors.GRAY_600)
+                  .fontWeight(label.isSelected ? FontWeight.Medium : FontWeight.Normal)
+
+                Text(label.weekdayLabel)
+                  .fontSize(10)
+                  .fontColor(label.isSelected ? AppColors.PRIMARY_DARK : AppColors.GRAY_500)
+              }
+              .width(`${100 / 7}%`)
+              .alignItems(HorizontalAlign.Center)
+            })
+          }
+          .width(this.chartWidth)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ top: 6, bottom: 8 })
+    }
+  }
+
+  @Builder
+  buildOverviewHeader() {
+    HealthCard({
+      title: '一周数据概览',
+      cardBackgroundColor: AppColors.WHITE,
+      iconColor: AppColors.PRIMARY
+    }) {
+      Column({ space: 6 }) {
+        Text(`所选日期：${this.formatSelectedDate()}`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(AppColors.GRAY_900)
+
+        Text('最后一天为当前所选日期，纵轴每格单位值已按数据范围自动换算')
+          .fontSize(12)
+          .fontColor(AppColors.GRAY_600)
+          .lineHeight(18)
+
+        Text(`周范围：${this.formatLongDate(this.getWeekStart(this.selectedDate))} - ${this.formatLongDate(this.selectedDate)}`)
+          .fontSize(12)
+          .fontColor(AppColors.GRAY_500)
+      }
+      .width('100%')
+    }
+  }
+
+  build() {
+    Stack() {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(AppColors.GRAY_50)
+
+      Scroll() {
+        Column({ space: 16 }) {
+          Row({ space: 12 }) {
+            Column({ space: 4 }) {
+              Text('周数据概览')
+                .fontSize(28)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(AppColors.GRAY_900)
+
+              Text('饮水、步数、心率与体重趋势')
+                .fontSize(14)
+                .fontColor(AppColors.GRAY_600)
+            }
+            .layoutWeight(1)
+
+            Button('返回')
+              .height(36)
+              .fontSize(14)
+              .fontColor(AppColors.PRIMARY)
+              .backgroundColor(AppColors.WHITE)
+              .border({ width: 1, color: AppColors.GRAY_200 })
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .padding({ left: 12, right: 12 })
+              .onClick(() => router.back())
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, top: 24, bottom: 4 })
+
+          Column() {
+            this.buildOverviewHeader()
+          }
+          .margin({ left: 16, right: 16 })
+
+          Column() {
+            this.buildMetricChart('饮水趋势', this.waterSeries, 'ml', AppColors.WATER_COLOR, 0)
+          }
+          .margin({ left: 16, right: 16 })
+
+          Column() {
+            this.buildMetricChart('步数趋势', this.stepSeries, '步', AppColors.STEPS_COLOR, 0)
+          }
+          .margin({ left: 16, right: 16 })
+
+          Column() {
+            this.buildMetricChart('心率趋势', this.heartRateSeries, 'bpm', AppColors.HEART_COLOR, 0)
+          }
+          .margin({ left: 16, right: 16 })
+
+          Column() {
+            this.buildMetricChart('体重趋势', this.weightSeries, 'kg', AppColors.PRIMARY_DARK, 1)
+          }
+          .margin({ left: 16, right: 16, bottom: 24 })
+        }
+        .width('100%')
+        .opacity(this.loading ? 0.7 : 1)
+      }
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(AppColors.GRAY_50)
+  }
+}

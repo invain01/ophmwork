@@ -93,7 +93,7 @@ struct Settings {
   /**
    * 提交反馈
    */
-  submitFeedback() {
+  async submitFeedback() {
     if (this.feedbackText.trim().length === 0) {
       promptAction.showToast({
         message: '请输入反馈内容',
@@ -102,21 +102,27 @@ struct Settings {
       return;
     }
     
-    // 在实际应用中，这里会将反馈发送到服务器
-    // 这里模拟提交成功
-    this.showFeedbackDialog = false;
-    this.showFeedbackSubmitted = true;
-    
-    // 显示成功通知
-    promptAction.showToast({
-      message: '反馈已提交，感谢您的意见！',
-      duration: 2000
-    });
-    
-    // 3秒后隐藏成功提示
-    setTimeout(() => {
-      this.showFeedbackSubmitted = false;
-    }, 3000);
+    try {
+      await AuthService.getInstance().saveFeedback(this.feedbackText);
+      this.showFeedbackDialog = false;
+      this.showFeedbackSubmitted = true;
+      this.feedbackText = '';
+
+      promptAction.showToast({
+        message: '反馈已提交，感谢您的意见！',
+        duration: 2000
+      });
+
+      setTimeout(() => {
+        this.showFeedbackSubmitted = false;
+      }, 3000);
+    } catch (error) {
+      console.error('提交反馈失败:', error);
+      promptAction.showToast({
+        message: '反馈提交失败，请稍后重试',
+        duration: 2000
+      });
+    }
   }
 
   /**

@@ -62,38 +62,48 @@ export class HealthApiService {
     return HealthApiService.instance;
   }
 
-  public async fetchDailyHealthData(date: Date, userId?: string): Promise<HealthData | null> {
-    const baseUrl = ApiConfig.BASE_URL?.trim();
-    if (!baseUrl) {
-      return null;
+  private getBaseUrlCandidates(): string[] {
+    const candidates: string[] = [];
+    const configured = ApiConfig.BASE_URL?.trim();
+    if (configured) {
+      candidates.push(configured);
     }
+    candidates.push('http://localhost:3000');
+    candidates.push('http://127.0.0.1:3000');
+    candidates.push('http://10.0.2.2:3000');
 
+    const unique: string[] = [];
+    for (const value of candidates) {
+      if (value && unique.indexOf(value) < 0) {
+        unique.push(value);
+      }
+    }
+    return unique;
+  }
+
+  public async fetchDailyHealthData(date: Date, userId?: string): Promise<HealthData | null> {
     const dateKey = this.formatDate(date);
     const queryUser = userId ? `&userId=${encodeURIComponent(userId)}` : '';
-    const url = `${baseUrl}${ApiConfig.HEALTH_DAILY_PATH}?date=${dateKey}${queryUser}`;
+    const query = `?date=${dateKey}${queryUser}`;
 
-    try {
-      const body = await this.requestText(url, http.RequestMethod.GET);
-      const payload = this.parseJson(body);
-      const record = this.extractSingleRecord(payload);
-      if (!record) {
-        return null;
+    for (const baseUrl of this.getBaseUrlCandidates()) {
+      try {
+        const body = await this.requestText(`${baseUrl}${ApiConfig.HEALTH_DAILY_PATH}${query}`, http.RequestMethod.GET);
+        const payload = this.parseJson(body);
+        const record = this.extractSingleRecord(payload);
+        if (record) {
+          return this.buildHealthData(record, dateKey);
+        }
+      } catch (error) {
+        console.error('Failed to fetch daily health data:', error);
       }
-      return this.buildHealthData(record, dateKey);
-    } catch (error) {
-      console.error('Failed to fetch daily health data:', error);
-      return null;
     }
+
+    return null;
   }
 
   public async saveDailyHealthData(date: Date, healthData: HealthData, userId?: string): Promise<boolean> {
-    const baseUrl = ApiConfig.BASE_URL?.trim();
-    if (!baseUrl) {
-      return false;
-    }
-
     const dateKey = this.formatDate(date);
-    const url = `${baseUrl}${ApiConfig.HEALTH_DAILY_PATH}`;
     const payload: DailyHealthUpsertPayload = {
       userId,
       date: dateKey,
@@ -108,21 +118,19 @@ export class HealthApiService {
       lastUpdated: healthData.lastUpdated
     };
 
-    try {
-      await this.requestText(url, http.RequestMethod.PUT, payload);
-      return true;
-    } catch (error) {
-      console.error('Failed to save daily health data:', error);
-      return false;
+    for (const baseUrl of this.getBaseUrlCandidates()) {
+      try {
+        await this.requestText(`${baseUrl}${ApiConfig.HEALTH_DAILY_PATH}`, http.RequestMethod.PUT, payload);
+        return true;
+      } catch (error) {
+        console.error('Failed to save daily health data:', error);
+      }
     }
+
+    return false;
   }
 
   public async fetchHealthDataDates(startDate?: Date, endDate?: Date, userId?: string): Promise<string[]> {
-    const baseUrl = ApiConfig.BASE_URL?.trim();
-    if (!baseUrl) {
-      return [];
-    }
-
     const params: string[] = [];
     if (startDate) {
       params.push(`startDate=${this.formatDate(startDate)}`);
@@ -135,45 +143,73 @@ export class HealthApiService {
     }
 
     const query = params.length ? `?${params.join('&')}` : '';
-    const url = `${baseUrl}${ApiConfig.HEALTH_DATES_PATH}${query}`;
 
-    try {
-      const body = await this.requestText(url, http.RequestMethod.GET);
-      const payload = this.parseJson(body);
-      const rawDates = this.extractDateArray(payload);
-      const normalized: string[] = [];
-      for (const value of rawDates) {
-        const key = this.normalizeDateKey(value);
-        if (key) {
-          normalized.push(key);
+    for (const baseUrl of this.getBaseUrlCandidates()) {
+      try {
+        const body = await this.requestText(`${baseUrl}${ApiConfig.HEALTH_DATES_PATH}${query}`, http.RequestMethod.GET);
+        const payload = this.parseJson(body);
+        const rawDates = this.extractDateArray(payload);
+        const normalized: string[] = [];
+        for (const value of rawDates) {
+          const key = this.normalizeDateKey(value);
+          if (key) {
+            normalized.push(key);
+          }
         }
+        if (normalized.length > 0) {
+          return normalized;
+        }
+      } catch (error) {
+        console.error('Failed to fetch health data dates:', error);
       }
-      return normalized;
-    } catch (error) {
-      console.error('Failed to fetch health data dates:', error);
-      return [];
     }
+
+    return [];
   }
 
   public async fetchWeeklyHealthData(startDate: Date, endDate: Date, userId?: string): Promise<DailyHealthRecord[]> {
-    const baseUrl = ApiConfig.BASE_URL?.trim();
-    if (!baseUrl) {
-      return [];
-    }
-
     const start = this.formatDate(startDate);
     const end = this.formatDate(endDate);
     const queryUser = userId ? `&userId=${encodeURIComponent(userId)}` : '';
-    const url = `${baseUrl}${ApiConfig.HEALTH_WEEKLY_PATH}?startDate=${start}&endDate=${end}${queryUser}`;
 
-    try {
-      const body = await this.requestText(url, http.RequestMethod.GET);
-      const payload = this.parsePayload(body);
-      return this.normalizeRecords(payload);
-    } catch (error) {
-      console.error('Failed to fetch weekly health data:', error);
+    for (const baseUrl of this.getBaseUrlCandidates()) {
+      try {
+        const body = await this.requestText(`${baseUrl}${ApiConfig.HEALTH_WEEKLY_PATH}?startDate=${start}&endDate=${end}${queryUser}`, http.RequestMethod.GET);
+        const payload = this.parsePayload(body);
+        const records = this.normalizeRecords(payload);
+        if (records.length > 0) {
+          return records;
+        }
+      } catch (error) {
+        console.error('Failed to fetch weekly health data:', error);
+      }
+    }
+
+    const fallbackDates = await this.fetchHealthDataDates(startDate, endDate, userId);
+    if (fallbackDates.length === 0) {
       return [];
     }
+
+    const fallbackRecords: DailyHealthRecord[] = [];
+    for (const dateKey of fallbackDates) {
+      const parsed = this.parseDateKey(dateKey);
+      if (!parsed) {
+        continue;
+      }
+      const healthData = await this.fetchDailyHealthData(parsed, userId);
+      if (healthData) {
+        fallbackRecords.push(new DailyHealthRecord(
+          dateKey,
+          healthData.steps,
+          healthData.waterIntake,
+          healthData.weight,
+          healthData.sleepHours,
+          healthData.heartRate
+        ));
+      }
+    }
+
+    return fallbackRecords;
   }
 
   private async requestText(url: string, method: http.RequestMethod, body?: object): Promise<string> {
@@ -346,6 +382,21 @@ export class HealthApiService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private parseDateKey(value: string): Date | null {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const parsed = new Date(year, month - 1, day);
+    if (isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed;
   }
 
   private looksLikeRecord(payload: Record<string, Object>): boolean {

@@ -2,11 +2,12 @@
   "src": [
     "pages/Login",
     "pages/Register",
+    "pages/AdminDashboard",
     "pages/Index",
-    "pages/WeeklyOverview",
     "pages/StatusSetting",
     "pages/GoalSetting",
     "pages/Settings",
-    "pages/Calendar"
+    "pages/Calendar",
+    "pages/WeekOverview"
   ]
 }

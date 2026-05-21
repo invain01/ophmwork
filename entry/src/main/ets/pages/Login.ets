@@ -61,6 +61,13 @@ struct Login {
     });
   }
 
+  // 跳转到管理端页面
+  private goToAdminDashboard() {
+    router.pushUrl({
+      url: 'pages/AdminDashboard'
+    });
+  }
+
   // 显示错误信息
   private showError(message: string) {
     this.errorMessage = message;
@@ -196,6 +203,23 @@ struct Login {
         .margin({ top: 24 })
         .justifyContent(FlexAlign.Center)
         .width('100%')
+
+        Button('进入管理端')
+          .width('100%')
+          .height(44)
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(AppColors.PRIMARY)
+          .backgroundColor(AppColors.WHITE)
+          .border({
+            width: 1,
+            color: AppColors.PRIMARY
+          })
+          .borderRadius(AppSizes.BUTTON_RADIUS)
+          .margin({ top: 12 })
+          .onClick(() => {
+            this.goToAdminDashboard();
+          })
       }
       .width('80%')
       .alignItems(HorizontalAlign.Center)

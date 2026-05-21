@@ -135,12 +135,12 @@
       },
       "2026-05-21": {
         "date": "2026-05-21",
-        "steps": 0,
+        "steps": 6000,
         "stepGoal": 10000,
-        "waterIntake": 0,
+        "waterIntake": 1750,
         "waterGoal": 2000,
         "weight": 70.9,
-        "sleepHours": 0,
+        "sleepHours": 7.5,
         "sleepGoal": 8,
         "heartRate": 82,
         "lastUpdated": "2026/5/20"
@@ -155,6 +155,20 @@
         "sleepHours": 0,
         "sleepGoal": 8,
         "heartRate": 94,
+        "lastUpdated": "2026/5/20"
+      }
+    },
+    "user_1779354281114": {
+      "2026-05-21": {
+        "date": "2026-05-21",
+        "steps": 6000,
+        "stepGoal": 10000,
+        "waterIntake": 1750,
+        "waterGoal": 2000,
+        "weight": 70.9,
+        "sleepHours": 7.5,
+        "sleepGoal": 8,
+        "heartRate": 82,
         "lastUpdated": "2026/5/20"
       }
     }
