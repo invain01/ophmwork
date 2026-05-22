@@ -2,7 +2,7 @@
  * HarmonyCare 首页
  * 展示用户信息与健康数据概览
  */
-import { HealthCard, IconCard, MediumStepRing, ProgressCard, ProgressCardComponent, WaterProgressBar } from '../components/index';
+import { HealthCard, IconCard, ProgressCard, ProgressCardComponent, WaterProgressBar } from '../components/index';
 import { HealthData } from '../model/HealthData';
 import { User } from '../model/User';
 import { AppColors, AppSizes, DefaultValues } from '../utils/Constants';
@@ -15,6 +15,9 @@ import router from '@ohos.router';
 @Entry
 @Component
 struct Index {
+  private readonly stepPieSize: number = 160;
+  private readonly stepPieStrokeWidth: number = 12;
+
   // 用户数据
   @State user: User = new User();
   
@@ -30,6 +33,7 @@ struct Index {
   @State hasPreviousWeight: boolean = false;
   @State weightCompareTextFromJson: string = '较昨日 --';
   @State weightCompareColorFromJson: string = AppColors.GRAY_600;
+  @State dataLoaded: boolean = false;
   
   async aboutToAppear() {
     // 检查登录状态
@@ -39,8 +43,10 @@ struct Index {
       return;
     }
 
+    this.dataLoaded = false;
     await this.loadUser();
     await this.loadSelectedDateAndData();
+    this.dataLoaded = true;
     
     // 模拟加载数据
     setTimeout(() => {
@@ -49,8 +55,10 @@ struct Index {
   }
 
   async onPageShow() {
+    this.dataLoaded = false;
     await this.loadUser();
     await this.loadSelectedDateAndData();
+    this.dataLoaded = true;
   }
   
   // 页面滚动位置
@@ -99,6 +107,51 @@ struct Index {
     // 确保percent是有效数字
     if (isNaN(percent) || !isFinite(percent)) return '0%';
     return `${percent}%`;
+  }
+
+  private get stepProgress(): number {
+    if (!this.dataLoaded || !this.healthData) {
+      return 0;
+    }
+    const percentage = this.healthData.stepsPercentage;
+    if (typeof percentage !== 'number' || !isFinite(percentage) || percentage < 0) {
+      return 0;
+    }
+    return Math.min(percentage / 100, 1);
+  }
+
+  private get stepPercentageText(): string {
+    if (!this.dataLoaded || !this.healthData) {
+      return '0%';
+    }
+    const percent = Math.round(this.healthData.stepsPercentage);
+    if (!isFinite(percent) || isNaN(percent)) {
+      return '0%';
+    }
+    return `${percent}%`;
+  }
+
+  private buildStepPiePoints(progress: number): Array<[number, number]> {
+    const safeProgress = Math.min(Math.max(progress, 0), 1);
+    const radius = (this.stepPieSize - this.stepPieStrokeWidth) / 2;
+    const center = this.stepPieSize / 2;
+    const pointCount = safeProgress >= 1 ? 96 : Math.max(8, Math.ceil(96 * safeProgress));
+    const points: Array<[number, number]> = [];
+
+    for (let index = 0; index < pointCount; index += 1) {
+      const ratio = pointCount === 1 ? 0 : index / (pointCount - 1);
+      const angle = (-90 + 360 * safeProgress * ratio) * Math.PI / 180;
+      points.push([
+        center + radius * Math.cos(angle),
+        center + radius * Math.sin(angle)
+      ]);
+    }
+
+    if (safeProgress >= 1 && points.length > 0) {
+      points.push(points[0]);
+    }
+
+    return points;
   }
 
   private goToGoalSetting() {
@@ -535,9 +588,16 @@ struct Index {
       cardBackgroundColor: AppColors.WHITE,
       iconColor: AppColors.STEPS_COLOR
     }) {
-      Column({ space: 16 }) {
-        // 步数圆环
-        MediumStepRing(this.healthData.steps, this.healthData.stepGoal)
+      Column({ space: 12 }) {
+        // 与睡眠卡保持一致的进度条样式，仅颜色使用步数主题色
+        ProgressCardComponent({
+          title: '今日步数',
+          value: this.healthData.steps,
+          total: this.healthData.stepGoal,
+          unit: '步',
+          color: AppColors.STEPS_COLOR,
+          icon: 'steps'
+        })
         
         // 步数操作按钮
         Row({ space: 12 }) {
