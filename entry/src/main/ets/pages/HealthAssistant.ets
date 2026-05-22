@@ -117,38 +117,11 @@ struct HealthAssistant {
               .fontSize(22)
               .fontWeight(FontWeight.Bold)
               .fontColor(AppColors.GRAY_900)
-
-            Text('基于 GPT API 的健康问答')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_600)
           }
           .layoutWeight(1)
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 20, bottom: 12 })
-
-        Column({ space: 8 }) {
-          Text('提示')
-            .fontSize(12)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(AppColors.GRAY_600)
-
-          Text('你可以直接输入类似“我最近总是睡不好怎么办”“如何安排减脂饮食”这样的问题。')
-            .fontSize(13)
-            .fontColor(AppColors.GRAY_700)
-            .lineHeight(20)
-        }
-        .width('100%')
-        .margin({ left: 20, right: 20, bottom: 12 })
-        .padding(14)
-        .backgroundColor(AppColors.WHITE)
-        .borderRadius(AppSizes.CARD_RADIUS)
-        .shadow({
-          radius: 10,
-          color: AppColors.BLACK_10,
-          offsetX: 0,
-          offsetY: 2
-        })
 
         Scroll() {
           Column({ space: 12 }) {

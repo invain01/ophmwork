@@ -373,14 +373,6 @@ struct WeekOverview {
 
   @Builder
   buildChartTitle(step: number, unit: string, precision: number) {
-    Row() {
-      Text(`每格 ${this.formatMetricStep(step, unit, precision)}`)
-        .fontSize(12)
-        .fontColor(this.axisTextColor)
-        .layoutWeight(1)
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -484,16 +476,6 @@ struct WeekOverview {
           .fontWeight(FontWeight.Medium)
           .fontColor(this.primaryTextColor)
 
-        Text('最后一天为当前所选日期，纵轴每格单位值已按数据范围自动换算')
-          .fontSize(12)
-          .fontColor(this.secondaryTextColor)
-          .lineHeight(18)
-
-        Text('横轴显示 7 天日期，纵轴按对应单位值分格：饮水 ml、步数 步、心率 bpm、体重 kg')
-          .fontSize(12)
-          .fontColor(this.secondaryTextColor)
-          .lineHeight(18)
-
         Text(`周范围：${this.formatLongDate(this.getWeekStart(this.selectedDate))} - ${this.formatLongDate(this.selectedDate)}`)
           .fontSize(12)
           .fontColor(this.axisTextColor)
@@ -554,10 +536,6 @@ struct WeekOverview {
                   Text('正在读取最近 7 天的数据，请稍候。')
                     .fontSize(14)
                     .fontColor(this.secondaryTextColor)
-
-                  Text('完成后会显示四张折线图及对应纵轴刻度。')
-                    .fontSize(12)
-                    .fontColor(this.axisTextColor)
                 }
                 .width('100%')
               }
