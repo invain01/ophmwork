@@ -6,7 +6,6 @@ import { HealthCard } from '../components/index';
 import { User } from '../model/User';
 import { AppColors, AppSizes } from '../utils/Constants';
 import { AuthService } from '../utils/AuthService';
-import { StorageService } from '../utils/StorageService';
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 
@@ -24,19 +23,19 @@ struct Settings {
       router.replaceUrl({ url: 'pages/Login' });
       return;
     }
-    // 初始化用户数据
-    this.user.name = '张三';
-    this.user.darkMode = false;
-    this.user.notifications = true;
-    this.user.healthReminders = true;
+
+    const currentUser = await AuthService.getInstance().getCurrentUser();
+    if (!currentUser) {
+      router.replaceUrl({ url: 'pages/Login' });
+      return;
+    }
+
+    this.user = currentUser;
   }
   
   // 应用版本
   @State appVersion: string = '1.0.0';
   
-  // 动画状态
-  @State darkModeAnimating: boolean = false;
-
   // 反馈相关状态
   @State showFeedbackDialog: boolean = false;
   @State feedbackText: string = '';
@@ -45,25 +44,35 @@ struct Settings {
   private goBack() {
     router.back();
   }
-  
-  /**
-   * 切换深色模式
-   */
-  toggleDarkMode() {
-    this.darkModeAnimating = true;
-    
-    // 模拟切换动画
-    setTimeout(() => {
-      const next = new User(this.user);
-      next.toggleDarkMode();
-      this.user = next;
-      this.darkModeAnimating = false;
-      
-      // 在实际应用中，这里会更新应用主题
-      // 由于我们仅使用Previewer，这里只更新状态
-    }, 300);
+
+  private get cardBackgroundColor(): string {
+    return AppColors.WHITE;
   }
-  
+
+  private get primaryTextColor(): string {
+    return AppColors.GRAY_900;
+  }
+
+  private get secondaryTextColor(): string {
+    return AppColors.GRAY_600;
+  }
+
+  private get mutedTextColor(): string {
+    return AppColors.GRAY_500;
+  }
+
+  private get cardBorderColor(): string {
+    return AppColors.GRAY_200;
+  }
+
+  private get panelBackgroundColor(): string {
+    return AppColors.GRAY_50;
+  }
+
+  private get dialogBackgroundColor(): string {
+    return AppColors.WHITE;
+  }
+
   /**
    * 切换通知设置
    */
@@ -133,19 +142,6 @@ struct Settings {
     this.feedbackText = '';
   }
 
-  private async showFilesDirPath() {
-    const filesDir = StorageService.getInstance().getFilesDirPath();
-    try {
-      await promptAction.showDialog({
-        title: '应用沙箱目录',
-        message: filesDir,
-        buttons: [{ text: '确定', color: AppColors.PRIMARY }]
-      });
-    } catch (error) {
-      console.error('显示文件目录失败:', error);
-    }
-  }
-  
   /**
    * 构建用户信息卡片
    */
@@ -153,7 +149,8 @@ struct Settings {
   buildUserInfoCard() {
     HealthCard({
       title: '用户信息',
-      cardBackgroundColor: AppColors.WHITE,
+      cardBackgroundColor: this.cardBackgroundColor,
+      cardTextColor: this.primaryTextColor,
       iconColor: AppColors.PRIMARY
     }) {
       Row({ space: 16 }) {
@@ -175,15 +172,15 @@ struct Settings {
           Text(this.user.name)
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
-            .fontColor(AppColors.GRAY_900)
+            .fontColor(this.primaryTextColor)
           
           Text('健康管理用户')
             .fontSize(14)
-            .fontColor(AppColors.GRAY_600)
+            .fontColor(this.secondaryTextColor)
           
           Text('ID: ' + this.user.id)
             .fontSize(12)
-            .fontColor(AppColors.GRAY_500)
+            .fontColor(this.mutedTextColor)
             .margin({ top: 4 })
         }
         .layoutWeight(1)
@@ -198,95 +195,7 @@ struct Settings {
    */
   @Builder
   buildThemeCard() {
-    HealthCard({
-      title: '主题设置',
-      cardBackgroundColor: AppColors.WHITE,
-      iconColor: AppColors.PRIMARY
-    }) {
-      Column({ space: 12 }) {
-        // 深色模式切换
-        Row() {
-          Column({ space: 4 }) {
-            Text('深色模式')
-              .fontSize(16)
-              .fontColor(AppColors.GRAY_900)
-            
-            Text('切换应用主题颜色')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_600)
-          }
-          .layoutWeight(1)
-          
-          Toggle({
-            type: ToggleType.Switch,
-            isOn: this.user.darkMode
-          })
-          .width(40)
-          .height(24)
-          .selectedColor(AppColors.PRIMARY)
-          .switchPointColor(AppColors.WHITE)
-          .onChange((isOn: boolean) => {
-            this.toggleDarkMode();
-          })
-          .opacity(this.darkModeAnimating ? 0.5 : 1)
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-        
-        // 主题预览
-        Row({ space: 16 }) {
-          // 浅色主题预览
-          Column({ space: 4 }) {
-            Column()
-              .width(60)
-              .height(40)
-              .backgroundColor(AppColors.GRAY_50)
-              .border({
-                width: this.user.darkMode ? 1 : 2,
-                color: this.user.darkMode ? AppColors.GRAY_300 : AppColors.PRIMARY
-              })
-              .borderRadius(8)
-            
-            Text('浅色')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_700)
-          }
-          .opacity(this.user.darkMode ? 0.5 : 1)
-          .onClick(() => {
-            if (this.user.darkMode) {
-              this.toggleDarkMode();
-            }
-          })
-          
-          // 深色主题预览
-          Column({ space: 4 }) {
-            Column()
-              .width(60)
-              .height(40)
-              .backgroundColor(AppColors.GRAY_800)
-              .border({
-                width: this.user.darkMode ? 2 : 1,
-                color: this.user.darkMode ? AppColors.PRIMARY : AppColors.GRAY_600
-              })
-              .borderRadius(8)
-            
-            Text('深色')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_700)
-          }
-          .opacity(this.user.darkMode ? 1 : 0.5)
-          .onClick(() => {
-            if (!this.user.darkMode) {
-              this.toggleDarkMode();
-            }
-          })
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .padding({ top: 8 })
-      }
-      .width('100%')
-    }
+    // 深色模式模块已移除
   }
   
   /**
@@ -297,6 +206,7 @@ struct Settings {
     HealthCard({
       title: '通知设置',
       cardBackgroundColor: AppColors.WHITE,
+      cardTextColor: AppColors.GRAY_900,
       iconColor: AppColors.PRIMARY
     }) {
       Column({ space: 12 }) {
@@ -361,48 +271,6 @@ struct Settings {
   }
 
   /**
-   * 构建本地存储卡片
-   */
-  @Builder
-  buildStorageCard() {
-    HealthCard({
-      title: '本地存储',
-      cardBackgroundColor: AppColors.WHITE,
-      iconColor: AppColors.PRIMARY
-    }) {
-      Column({ space: 12 }) {
-        Row() {
-          Column({ space: 4 }) {
-            Text('数据存储目录')
-              .fontSize(16)
-              .fontColor(AppColors.GRAY_900)
-
-            Text('查看应用沙箱 filesDir 路径')
-              .fontSize(12)
-              .fontColor(AppColors.GRAY_600)
-          }
-          .layoutWeight(1)
-
-          Button('查看')
-            .height(32)
-            .fontSize(12)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(AppColors.WHITE)
-            .backgroundColor(AppColors.PRIMARY)
-            .borderRadius(AppSizes.BUTTON_RADIUS)
-            .padding({ left: 12, right: 12 })
-            .onClick(() => {
-              this.showFilesDirPath();
-            })
-        }
-        .width('100%')
-        .padding({ top: 8, bottom: 8 })
-      }
-      .width('100%')
-    }
-  }
-  
-  /**
    * 构建关于卡片
    */
   @Builder
@@ -410,6 +278,7 @@ struct Settings {
     HealthCard({
       title: '关于应用',
       cardBackgroundColor: AppColors.WHITE,
+      cardTextColor: AppColors.GRAY_900,
       iconColor: AppColors.PRIMARY
     }) {
       Column({ space: 16 }) {
@@ -552,7 +421,7 @@ struct Settings {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor('rgba(0,0,0,0.5)')
+          .backgroundColor('rgba(0,0,0,0.5)')
         .position({ x: 0, y: 0 })
         .onClick(() => {
           // 点击背景关闭对话框
@@ -733,12 +602,6 @@ struct Settings {
           }
           .margin({ left: 16, right: 16 })
 
-          // 本地存储卡片
-          Column() {
-            this.buildStorageCard()
-          }
-          .margin({ left: 16, right: 16 })
-          
           // 关于卡片
           Column() {
             this.buildAboutCard()

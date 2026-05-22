@@ -18,10 +18,6 @@ export class User {
   dailyStepGoal: number = 10000;
   dailyWaterGoal: number = 2000; // 毫升
   dailySleepGoal: number = 8; // 小时
-  
-  
-  // 设置
-  darkMode: boolean = false;
   notifications: boolean = true;
   healthReminders: boolean = true;
   
@@ -48,8 +44,6 @@ export class User {
       if (data.dailyStepGoal !== undefined) this.dailyStepGoal = data.dailyStepGoal;
       if (data.dailyWaterGoal !== undefined) this.dailyWaterGoal = data.dailyWaterGoal;
       if (data.dailySleepGoal !== undefined) this.dailySleepGoal = data.dailySleepGoal;
-      
-      if (data.darkMode !== undefined) this.darkMode = data.darkMode;
       if (data.notifications !== undefined) this.notifications = data.notifications;
       if (data.healthReminders !== undefined) this.healthReminders = data.healthReminders;
     }
@@ -79,11 +73,6 @@ export class User {
     if (bmi < 24) return '#4CAF50'; // 绿色
     if (bmi < 28) return '#FFC107'; // 黄色
     return '#F44336'; // 红色
-  }
-  
-  // 切换深色模式
-  toggleDarkMode(): void {
-    this.darkMode = !this.darkMode;
   }
   
   // 更新个人信息

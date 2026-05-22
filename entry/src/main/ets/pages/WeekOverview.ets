@@ -89,6 +89,46 @@ struct WeekOverview {
   private readonly chartPadding: number = 20;
   private readonly axisLabelWidth: number = 56;
 
+  private get pageBackgroundColor(): string {
+    return AppColors.GRAY_50;
+  }
+
+  private get cardBackgroundColor(): string {
+    return AppColors.WHITE;
+  }
+
+  private get primaryTextColor(): string {
+    return AppColors.GRAY_900;
+  }
+
+  private get secondaryTextColor(): string {
+    return AppColors.GRAY_600;
+  }
+
+  private get mutedTextColor(): string {
+    return AppColors.GRAY_500;
+  }
+
+  private get axisTextColor(): string {
+    return AppColors.GRAY_500;
+  }
+
+  private get gridLineColor(): string {
+    return AppColors.GRAY_200;
+  }
+
+  private get buttonBackgroundColor(): string {
+    return AppColors.WHITE;
+  }
+
+  private get buttonBorderColor(): string {
+    return AppColors.GRAY_200;
+  }
+
+  private get selectedLabelColor(): string {
+    return AppColors.PRIMARY_DARK;
+  }
+
   async aboutToAppear() {
     const isLoggedIn = await AuthService.getInstance().isLoggedIn();
     if (!isLoggedIn) {
@@ -336,7 +376,7 @@ struct WeekOverview {
     Row() {
       Text(`每格 ${this.formatMetricStep(step, unit, precision)}`)
         .fontSize(12)
-        .fontColor(AppColors.GRAY_500)
+        .fontColor(this.axisTextColor)
         .layoutWeight(1)
     }
     .width('100%')
@@ -347,8 +387,9 @@ struct WeekOverview {
   buildMetricChart(title: string, values: number[], unit: string, color: string, precision: number) {
     HealthCard({
       title,
-      cardBackgroundColor: AppColors.WHITE,
-      iconColor: color
+      cardBackgroundColor: this.cardBackgroundColor,
+      iconColor: color,
+      cardTextColor: this.primaryTextColor
     }) {
       Column({ space: 12 }) {
         this.buildChartTitle(this.getChartRenderDataByTitle(title, values).scale.step, unit, precision)
@@ -358,7 +399,7 @@ struct WeekOverview {
             ForEach(this.getChartRenderDataByTitle(title, values).scale.ticks, (tick: AxisTick) => {
               Text(this.formatMetricValue(tick.value, unit, precision))
                 .fontSize(10)
-                .fontColor(AppColors.GRAY_500)
+                .fontColor(this.axisTextColor)
                 .textAlign(TextAlign.RIGHT)
             })
           }
@@ -372,7 +413,7 @@ struct WeekOverview {
               Row()
                 .width('100%')
                 .height(1)
-                .backgroundColor(AppColors.GRAY_200)
+                .backgroundColor(this.gridLineColor)
                 .position({ x: 0, y: tick.y })
             })
 
@@ -408,12 +449,12 @@ struct WeekOverview {
               Column({ space: 2 }) {
                 Text(label.dateLabel)
                   .fontSize(11)
-                  .fontColor(label.isSelected ? AppColors.PRIMARY_DARK : AppColors.GRAY_600)
+                  .fontColor(label.isSelected ? this.selectedLabelColor : this.secondaryTextColor)
                   .fontWeight(label.isSelected ? FontWeight.Medium : FontWeight.Normal)
 
                 Text(label.weekdayLabel)
                   .fontSize(10)
-                  .fontColor(label.isSelected ? AppColors.PRIMARY_DARK : AppColors.GRAY_500)
+                  .fontColor(label.isSelected ? this.selectedLabelColor : this.mutedTextColor)
               }
               .width(`${100 / 7}%`)
               .alignItems(HorizontalAlign.Center)
@@ -433,28 +474,29 @@ struct WeekOverview {
   buildOverviewHeader() {
     HealthCard({
       title: '一周数据概览',
-      cardBackgroundColor: AppColors.WHITE,
-      iconColor: AppColors.PRIMARY
+      cardBackgroundColor: this.cardBackgroundColor,
+      iconColor: AppColors.PRIMARY,
+      cardTextColor: this.primaryTextColor
     }) {
       Column({ space: 6 }) {
         Text(`所选日期：${this.formatSelectedDate()}`)
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor(AppColors.GRAY_900)
+          .fontColor(this.primaryTextColor)
 
         Text('最后一天为当前所选日期，纵轴每格单位值已按数据范围自动换算')
           .fontSize(12)
-          .fontColor(AppColors.GRAY_600)
+          .fontColor(this.secondaryTextColor)
           .lineHeight(18)
 
         Text('横轴显示 7 天日期，纵轴按对应单位值分格：饮水 ml、步数 步、心率 bpm、体重 kg')
           .fontSize(12)
-          .fontColor(AppColors.GRAY_600)
+          .fontColor(this.secondaryTextColor)
           .lineHeight(18)
 
         Text(`周范围：${this.formatLongDate(this.getWeekStart(this.selectedDate))} - ${this.formatLongDate(this.selectedDate)}`)
           .fontSize(12)
-          .fontColor(AppColors.GRAY_500)
+          .fontColor(this.axisTextColor)
       }
       .width('100%')
     }
@@ -465,7 +507,7 @@ struct WeekOverview {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor(AppColors.GRAY_50)
+        .backgroundColor(this.pageBackgroundColor)
 
       Scroll() {
         Column({ space: 16 }) {
@@ -474,11 +516,11 @@ struct WeekOverview {
               Text('周数据概览')
                 .fontSize(28)
                 .fontWeight(FontWeight.Bold)
-                .fontColor(AppColors.GRAY_900)
+                .fontColor(this.primaryTextColor)
 
               Text('饮水、步数、心率与体重趋势')
                 .fontSize(14)
-                .fontColor(AppColors.GRAY_600)
+                .fontColor(this.secondaryTextColor)
             }
             .layoutWeight(1)
 
@@ -486,8 +528,8 @@ struct WeekOverview {
               .height(36)
               .fontSize(14)
               .fontColor(AppColors.PRIMARY)
-              .backgroundColor(AppColors.WHITE)
-              .border({ width: 1, color: AppColors.GRAY_200 })
+              .backgroundColor(this.buttonBackgroundColor)
+              .border({ width: 1, color: this.buttonBorderColor })
               .borderRadius(AppSizes.BUTTON_RADIUS)
               .padding({ left: 12, right: 12 })
               .onClick(() => router.back())
@@ -504,17 +546,18 @@ struct WeekOverview {
             if (this.loading) {
               HealthCard({
                 title: '加载中',
-                cardBackgroundColor: AppColors.WHITE,
-                iconColor: AppColors.PRIMARY
+                cardBackgroundColor: this.cardBackgroundColor,
+                iconColor: AppColors.PRIMARY,
+                cardTextColor: this.primaryTextColor
               }) {
                 Column({ space: 8 }) {
                   Text('正在读取最近 7 天的数据，请稍候。')
                     .fontSize(14)
-                    .fontColor(AppColors.GRAY_600)
+                    .fontColor(this.secondaryTextColor)
 
                   Text('完成后会显示四张折线图及对应纵轴刻度。')
                     .fontSize(12)
-                    .fontColor(AppColors.GRAY_500)
+                    .fontColor(this.axisTextColor)
                 }
                 .width('100%')
               }

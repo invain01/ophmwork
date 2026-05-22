@@ -87,6 +87,7 @@ struct Login {
     const isLoggedIn = await this.authService.isLoggedIn();
     if (isLoggedIn) {
       router.replaceUrl({ url: 'pages/Index' });
+      return;
     }
   }
 
