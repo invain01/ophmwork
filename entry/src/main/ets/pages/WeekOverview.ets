@@ -45,14 +45,30 @@ class WeekAxisLabel {
 }
 
 class MetricScale {
+  bottomValue: number;
   topValue: number;
   step: number;
   ticks: AxisTick[];
 
-  constructor(topValue: number, step: number, ticks: AxisTick[]) {
+  constructor(bottomValue: number, topValue: number, step: number, ticks: AxisTick[]) {
+    this.bottomValue = bottomValue;
     this.topValue = topValue;
     this.step = step;
     this.ticks = ticks;
+  }
+}
+
+type ChartShapePoint = [number, number];
+
+class ChartRenderData {
+  scale: MetricScale;
+  points: ChartPoint[];
+  polylinePoints: ChartShapePoint[];
+
+  constructor(scale: MetricScale, points: ChartPoint[], polylinePoints: ChartShapePoint[]) {
+    this.scale = scale;
+    this.points = points;
+    this.polylinePoints = polylinePoints;
   }
 }
 
@@ -68,10 +84,10 @@ struct WeekOverview {
   @State heartRateSeries: number[] = [];
   @State weightSeries: number[] = [];
 
-  private readonly chartWidth: number = 268;
+  private readonly chartWidth: number = 232;
   private readonly chartHeight: number = 160;
-  private readonly chartPadding: number = 14;
-  private readonly axisLabelWidth: number = 64;
+  private readonly chartPadding: number = 20;
+  private readonly axisLabelWidth: number = 56;
 
   async aboutToAppear() {
     const isLoggedIn = await AuthService.getInstance().isLoggedIn();
@@ -89,18 +105,21 @@ struct WeekOverview {
 
   private async loadPageData() {
     this.loading = true;
-    await this.loadUser();
+    try {
+      await this.loadUser();
 
-    const savedDate = await StorageService.getInstance().getSelectedDateValue();
-    const anchorDate = savedDate ?? new Date();
-    anchorDate.setHours(0, 0, 0, 0);
-    if (!savedDate) {
-      await StorageService.getInstance().saveSelectedDateValue(anchorDate);
+      const savedDate = await StorageService.getInstance().getSelectedDateValue();
+      const anchorDate = savedDate ?? new Date();
+      anchorDate.setHours(0, 0, 0, 0);
+      if (!savedDate) {
+        await StorageService.getInstance().saveSelectedDateValue(anchorDate);
+      }
+
+      this.selectedDate = anchorDate;
+      await this.loadWeekSeries(anchorDate);
+    } finally {
+      this.loading = false;
     }
-
-    this.selectedDate = anchorDate;
-    await this.loadWeekSeries(anchorDate);
-    this.loading = false;
   }
 
   private async loadUser() {
@@ -213,19 +232,21 @@ struct WeekOverview {
     return this.formatMetricValue(step, unit, precision);
   }
 
-  private buildMetricScale(values: number[]): MetricScale {
+  private buildMetricScale(values: number[], useDataBounds: boolean = false): MetricScale {
     const maxValue = this.getMaxValue(values);
+    const minValue = useDataBounds ? this.getMinValue(values) : 0;
     const tickCount = 5;
-    const rawStep = maxValue > 0 ? maxValue / (tickCount - 1) : 1;
-    const step = this.niceStep(rawStep);
-    const topValue = step * (tickCount - 1);
+    const range = Math.max(maxValue - minValue, 0);
+    const step = useDataBounds ? (range / (tickCount - 1)) : this.niceStep(range > 0 ? range / (tickCount - 1) : 1);
+    const topValue = useDataBounds ? maxValue : step * (tickCount - 1);
+    const bottomValue = useDataBounds ? minValue : 0;
     const ticks: AxisTick[] = [];
     for (let i = 0; i < tickCount; i += 1) {
       const value = topValue - step * i;
       const y = this.chartPadding + ((this.chartHeight - this.chartPadding * 2) / (tickCount - 1)) * i;
       ticks.push(new AxisTick(value, y));
     }
-    return new MetricScale(topValue, step, ticks);
+    return new MetricScale(bottomValue, topValue, step, ticks);
   }
 
   private getMaxValue(values: number[]): number {
@@ -237,6 +258,19 @@ struct WeekOverview {
       }
     }
     return maxValue;
+  }
+
+  private getMinValue(values: number[]): number {
+    let minValue: number | null = null;
+    for (let i = 0; i < values.length; i += 1) {
+      const value = values[i];
+      if (typeof value === 'number' && isFinite(value)) {
+        if (minValue === null || value < minValue) {
+          minValue = value;
+        }
+      }
+    }
+    return minValue === null ? 0 : minValue;
   }
 
   private niceStep(value: number): number {
@@ -266,37 +300,44 @@ struct WeekOverview {
     const usableWidth = safeWidth - this.chartPadding * 2;
     const usableHeight = safeHeight - this.chartPadding * 2;
     const gap = values.length > 1 ? usableWidth / (values.length - 1) : 0;
+    const range = Math.max(scale.topValue - scale.bottomValue, 0);
     return values.map((value: number, index: number) => {
       const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
-      const ratio = scale.topValue > 0 ? Math.min(Math.max(safeValue / scale.topValue, 0), 1) : 0;
+      const ratio = range > 0 ? Math.min(Math.max((safeValue - scale.bottomValue) / range, 0), 1) : 0;
       const x = this.chartPadding + gap * index;
       const y = safeHeight - this.chartPadding - ratio * usableHeight;
       return new ChartPoint(x, y, index === values.length - 1);
     });
   }
 
-  private buildLinePath(points: ChartPoint[]): string {
-    if (points.length === 0) {
-      return '';
+  private getChartRenderData(values: number[]): ChartRenderData {
+    const scale = this.buildMetricScale(values);
+    const points = this.buildLinePoints(values, scale);
+    const polylinePoints = points.map((point: ChartPoint): ChartShapePoint => [point.x, point.y]);
+    return new ChartRenderData(scale, points, polylinePoints);
+  }
+
+  private getWeightChartRenderData(values: number[]): ChartRenderData {
+    const scale = this.buildMetricScale(values, true);
+    const points = this.buildLinePoints(values, scale);
+    const polylinePoints = points.map((point: ChartPoint): ChartShapePoint => [point.x, point.y]);
+    return new ChartRenderData(scale, points, polylinePoints);
+  }
+
+  private getChartRenderDataByTitle(title: string, values: number[]): ChartRenderData {
+    if (title === '体重趋势') {
+      return this.getWeightChartRenderData(values);
     }
-    return points.map((point: ChartPoint, index: number) => {
-      const command = index === 0 ? 'M' : 'L';
-      return `${command} ${point.x} ${point.y}`;
-    }).join(' ');
+    return this.getChartRenderData(values);
   }
 
   @Builder
-  buildChartTitle(title: string, step: number, unit: string, precision: number) {
-    Row({ space: 8 }) {
-      Text(title)
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(AppColors.GRAY_900)
-        .layoutWeight(1)
-
+  buildChartTitle(step: number, unit: string, precision: number) {
+    Row() {
       Text(`每格 ${this.formatMetricStep(step, unit, precision)}`)
         .fontSize(12)
         .fontColor(AppColors.GRAY_500)
+        .layoutWeight(1)
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -310,11 +351,11 @@ struct WeekOverview {
       iconColor: color
     }) {
       Column({ space: 12 }) {
-        this.buildChartTitle(title, this.buildMetricScale(values).step, unit, precision)
+        this.buildChartTitle(this.getChartRenderDataByTitle(title, values).scale.step, unit, precision)
 
         Row({ space: 8 }) {
           Column({ space: 0 }) {
-            ForEach(this.buildMetricScale(values).ticks, (tick: AxisTick) => {
+            ForEach(this.getChartRenderDataByTitle(title, values).scale.ticks, (tick: AxisTick) => {
               Text(this.formatMetricValue(tick.value, unit, precision))
                 .fontSize(10)
                 .fontColor(AppColors.GRAY_500)
@@ -327,7 +368,7 @@ struct WeekOverview {
           .alignItems(HorizontalAlign.End)
 
           Stack() {
-            ForEach(this.buildMetricScale(values).ticks, (tick: AxisTick) => {
+            ForEach(this.getChartRenderDataByTitle(title, values).scale.ticks, (tick: AxisTick) => {
               Row()
                 .width('100%')
                 .height(1)
@@ -335,17 +376,18 @@ struct WeekOverview {
                 .position({ x: 0, y: tick.y })
             })
 
-            if (this.buildLinePoints(values, this.buildMetricScale(values)).length > 1) {
-              Shape() {
-                Path()
-                  .commands(this.buildLinePath(this.buildLinePoints(values, this.buildMetricScale(values))))
-                  .stroke(color)
-                  .strokeWidth(2)
-                  .fill(Color.Transparent)
-              }
+            if (this.getChartRenderDataByTitle(title, values).points.length > 1) {
+              Polyline()
+                .points(this.getChartRenderDataByTitle(title, values).polylinePoints)
+                .width('100%')
+                .height('100%')
+                .position({ x: 0, y: 0 })
+                .stroke(color)
+                .strokeWidth(2)
+                .fill(Color.Transparent)
             }
 
-            ForEach(this.buildLinePoints(values, this.buildMetricScale(values)), (point: ChartPoint) => {
+            ForEach(this.getChartRenderDataByTitle(title, values).points, (point: ChartPoint) => {
               Circle({ width: point.isLast ? 8 : 6, height: point.isLast ? 8 : 6 })
                 .fill(color)
                 .position({ x: point.x - (point.isLast ? 4 : 3), y: point.y - (point.isLast ? 4 : 3) })
@@ -405,6 +447,11 @@ struct WeekOverview {
           .fontColor(AppColors.GRAY_600)
           .lineHeight(18)
 
+        Text('横轴显示 7 天日期，纵轴按对应单位值分格：饮水 ml、步数 步、心率 bpm、体重 kg')
+          .fontSize(12)
+          .fontColor(AppColors.GRAY_600)
+          .lineHeight(18)
+
         Text(`周范围：${this.formatLongDate(this.getWeekStart(this.selectedDate))} - ${this.formatLongDate(this.selectedDate)}`)
           .fontSize(12)
           .fontColor(AppColors.GRAY_500)
@@ -454,27 +501,49 @@ struct WeekOverview {
           .margin({ left: 16, right: 16 })
 
           Column() {
-            this.buildMetricChart('饮水趋势', this.waterSeries, 'ml', AppColors.WATER_COLOR, 0)
+            if (this.loading) {
+              HealthCard({
+                title: '加载中',
+                cardBackgroundColor: AppColors.WHITE,
+                iconColor: AppColors.PRIMARY
+              }) {
+                Column({ space: 8 }) {
+                  Text('正在读取最近 7 天的数据，请稍候。')
+                    .fontSize(14)
+                    .fontColor(AppColors.GRAY_600)
+
+                  Text('完成后会显示四张折线图及对应纵轴刻度。')
+                    .fontSize(12)
+                    .fontColor(AppColors.GRAY_500)
+                }
+                .width('100%')
+              }
+            } else {
+              Column() {
+                this.buildMetricChart('饮水趋势', this.waterSeries, 'ml', AppColors.WATER_COLOR, 0)
+              }
+              .margin({ left: 16, right: 16 })
+
+              Column() {
+                this.buildMetricChart('步数趋势', this.stepSeries, '步', AppColors.STEPS_COLOR, 0)
+              }
+              .margin({ left: 16, right: 16 })
+
+              Column() {
+                this.buildMetricChart('心率趋势', this.heartRateSeries, 'bpm', AppColors.HEART_COLOR, 0)
+              }
+              .margin({ left: 16, right: 16 })
+
+              Column() {
+                this.buildMetricChart('体重趋势', this.weightSeries, 'kg', AppColors.PRIMARY_DARK, 1)
+              }
+              .margin({ left: 16, right: 16, bottom: 24 })
+            }
           }
           .margin({ left: 16, right: 16 })
-
-          Column() {
-            this.buildMetricChart('步数趋势', this.stepSeries, '步', AppColors.STEPS_COLOR, 0)
-          }
-          .margin({ left: 16, right: 16 })
-
-          Column() {
-            this.buildMetricChart('心率趋势', this.heartRateSeries, 'bpm', AppColors.HEART_COLOR, 0)
-          }
-          .margin({ left: 16, right: 16 })
-
-          Column() {
-            this.buildMetricChart('体重趋势', this.weightSeries, 'kg', AppColors.PRIMARY_DARK, 1)
-          }
-          .margin({ left: 16, right: 16, bottom: 24 })
         }
         .width('100%')
-        .opacity(this.loading ? 0.7 : 1)
+        .opacity(1)
       }
       .scrollable(ScrollDirection.Vertical)
       .scrollBar(BarState.Off)

@@ -1073,19 +1073,27 @@ struct Index {
             delay: 300
           })
 
-          Row() {
-            Button('一周概览')
-              .height(40)
+          Column({ space: 8 }) {
+            Text('一周概览')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(AppColors.GRAY_900)
+
+            Text('查看最近 7 天的饮水、步数、心率和体重趋势')
+              .fontSize(12)
+              .fontColor(AppColors.GRAY_600)
+
+            Button('进入周数据概览')
+              .width('100%')
+              .height(44)
               .fontSize(15)
               .fontColor(AppColors.WHITE)
               .backgroundColor(AppColors.PRIMARY)
               .borderRadius(AppSizes.BUTTON_RADIUS)
-              .padding({ left: 20, right: 20 })
               .onClick(() => this.goToWeekOverview())
           }
           .width('100%')
-          .padding({ left: 24, right: 24, bottom: 8 })
-          .justifyContent(FlexAlign.Center)
+          .padding({ left: 24, right: 24, top: 4, bottom: 12 })
           .opacity(this.showWelcome ? 0 : 1)
           .animation({
             duration: 500,
