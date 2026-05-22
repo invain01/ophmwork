@@ -4,6 +4,7 @@
     "pages/Register",
     "pages/AdminDashboard",
     "pages/Index",
+    "pages/HealthAssistant",
     "pages/StatusSetting",
     "pages/GoalSetting",
     "pages/Settings",

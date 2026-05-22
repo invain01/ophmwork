@@ -94,4 +94,5 @@ export class ApiConfig {
   static readonly HEALTH_DAILY_PATH = '/health/daily';
   static readonly HEALTH_WEEKLY_PATH = '/health/weekly';
   static readonly HEALTH_DATES_PATH = '/health/dates';
+  static readonly HEALTH_ASSISTANT_CHAT_PATH = '/health/assistant/chat';
 }

@@ -174,6 +174,10 @@ struct Index {
     router.pushUrl({ url: 'pages/WeekOverview' });
   }
 
+  private goToHealthAssistant() {
+    router.pushUrl({ url: 'pages/HealthAssistant' });
+  }
+
 
   private async loadUser() {
     const currentUser = await AuthService.getInstance().getCurrentUser();
@@ -1159,6 +1163,35 @@ struct Index {
             duration: 500,
             curve: Curve.EaseInOut,
             delay: 350
+          })
+
+          Column({ space: 8 }) {
+            Text('健康助手')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(AppColors.GRAY_900)
+
+            Text('有任何饮食、运动、睡眠或健康管理问题，直接和 AI 聊。')
+              .fontSize(12)
+              .fontColor(AppColors.GRAY_600)
+              .lineHeight(18)
+
+            Button('打开健康助手聊天')
+              .width('100%')
+              .height(44)
+              .fontSize(15)
+              .fontColor(AppColors.WHITE)
+              .backgroundColor(AppColors.PRIMARY_DARK)
+              .borderRadius(AppSizes.BUTTON_RADIUS)
+              .onClick(() => this.goToHealthAssistant())
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, top: 4, bottom: 12 })
+          .opacity(this.showWelcome ? 0 : 1)
+          .animation({
+            duration: 500,
+            curve: Curve.EaseInOut,
+            delay: 375
           })
           
           // 用户信息卡片

@@ -3,10 +3,64 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 
+function loadDotEnv(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const equalsIndex = trimmed.indexOf('=');
+    if (equalsIndex < 0) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, equalsIndex).trim();
+    const value = trimmed.slice(equalsIndex + 1).trim();
+    if (key && !process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadDotEnv(path.join(__dirname, '.env'));
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'health-data.json');
+const OPENAI_API_URL = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+function normalizeOpenAIUrl(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) {
+    return 'https://api.openai.com/v1/chat/completions';
+  }
+
+  if (/\/chat\/completions\/?$/i.test(raw) || /\/responses\/?$/i.test(raw)) {
+    return raw;
+  }
+
+  if (/\/v1\/?$/i.test(raw)) {
+    return `${raw.replace(/\/+$/, '')}/chat/completions`;
+  }
+
+  if (/^https?:\/\/[^\s/]+$/i.test(raw)) {
+    return `${raw}/v1/chat/completions`;
+  }
+
+  return raw.replace(/\/+$/, '');
+}
+
+const OPENAI_REQUEST_URL = normalizeOpenAIUrl(OPENAI_API_URL);
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -135,6 +189,142 @@ function getReadableUserStore(store, userId) {
   return {};
 }
 
+function normalizeAssistantHistory(history) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  const messages = [];
+  for (const item of history.slice(-12)) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    const role = item.role === 'assistant' ? 'assistant' : 'user';
+    const content = typeof item.content === 'string' ? item.content.trim() : '';
+    if (!content) {
+      continue;
+    }
+    messages.push({ role, content });
+  }
+  return messages;
+}
+
+function buildAssistantMessages(message, history) {
+  const messages = [
+    {
+      role: 'system',
+      content: '你是一名中文健康助手。你要给出清晰、简洁、可执行的健康建议，但不能代替医生诊断。遇到胸痛、呼吸困难、昏厥、持续高烧、剧烈疼痛或其他紧急症状时，必须立即建议用户尽快就医或呼叫急救。优先给出安全、温和、非药物的日常建议。'
+    }
+  ];
+  messages.push(...normalizeAssistantHistory(history));
+  messages.push({ role: 'user', content: message });
+  return messages;
+}
+
+function buildFallbackReply(message) {
+  const trimmed = typeof message === 'string' ? message.trim() : '';
+  if (!trimmed) {
+    return '请先告诉我你的健康问题，我会尽量给出可执行的日常建议。';
+  }
+  return '当前健康助手暂时未连接到 GPT API。我可以先给你一个通用建议：把问题拆成饮食、运动、睡眠和症状四部分，再根据最近几天的变化逐步调整。如果你有明显不适，请优先就医。';
+}
+
+function extractAssistantReply(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+
+  const choices = payload.choices;
+  if (Array.isArray(choices) && choices.length > 0) {
+    const firstChoice = choices[0] || {};
+    const candidateSources = [
+      firstChoice.message && firstChoice.message.content,
+      firstChoice.delta && firstChoice.delta.content,
+      firstChoice.text,
+      firstChoice.content
+    ];
+    for (const candidate of candidateSources) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+
+  const directCandidates = [
+    payload.reply,
+    payload.message,
+    payload.content,
+    payload.result,
+    payload.output_text,
+    payload.answer,
+    payload.data && payload.data.reply,
+    payload.data && payload.data.message,
+    payload.data && payload.data.content,
+    payload.data && payload.data.result
+  ];
+
+  for (const candidate of directCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  if (payload.error) {
+    if (typeof payload.error === 'string' && payload.error.trim()) {
+      return payload.error.trim();
+    }
+    if (payload.error.message && typeof payload.error.message === 'string' && payload.error.message.trim()) {
+      return payload.error.message.trim();
+    }
+  }
+
+  if (payload.msg && typeof payload.msg === 'string' && payload.msg.trim()) {
+    return payload.msg.trim();
+  }
+
+  return '';
+}
+
+async function callOpenAI(message, history) {
+  const apiKey = OPENAI_API_KEY.trim();
+  if (!apiKey || apiKey === '请在这里明文填写你的 OpenAI API Key') {
+    return { reply: buildFallbackReply(message), source: 'fallback', reason: 'OPENAI_API_KEY is not set' };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(OPENAI_REQUEST_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: buildAssistantMessages(message, history),
+        temperature: 0.6
+      }),
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`OpenAI request failed: ${response.status} ${text}`);
+    }
+
+    const payload = JSON.parse(text);
+    const reply = extractAssistantReply(payload);
+    if (!reply) {
+      throw new Error(`OpenAI response did not contain assistant content: ${text}`);
+    }
+
+    return { reply, source: 'openai', model: OPENAI_MODEL };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function buildRecord(dateKey, payload, existing) {
   const fallback = existing || {};
   return {
@@ -259,6 +449,35 @@ app.get('/health/dates', (req, res) => {
   return res.json({ data: keys });
 });
 
-app.listen(PORT, () => {
+app.post('/health/assistant/chat', async (req, res) => {
+  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  if (!message) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  const history = normalizeAssistantHistory(req.body.history);
+  try {
+    const result = await callOpenAI(message, history);
+    return res.json(result);
+  } catch (error) {
+    console.error('Health assistant error:', error);
+    return res.json({
+      reply: buildFallbackReply(message),
+      source: 'fallback',
+      reason: error && error.message ? error.message : 'assistant unavailable'
+    });
+  }
+});
+
+const server = app.listen(PORT, () => {
   console.log(`Health server listening on http://localhost:${PORT}`);
+});
+
+server.on('error', (error) => {
+  if (error && error.code === 'EADDRINUSE') {
+    console.log(`Port ${PORT} is already in use. The health server may already be running.`);
+    process.exit(0);
+    return;
+  }
+  throw error;
 });
